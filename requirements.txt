@@ -1,0 +1,19 @@
+# ===========================================
+# MyCreator Analytics ETL - Dependencies
+# ===========================================
+
+# HTTP Client com suporte a TLS fingerprinting (bypass WAF/Cloudflare)
+curl_cffi>=0.6.0
+
+# Manipulação de dados
+pandas>=2.0.0
+
+# Google Sheets API
+gspread>=5.12.0
+google-auth>=2.25.0
+
+# Variáveis de ambiente (desenvolvimento local)
+python-dotenv>=1.0.0
+
+# Utilitários
+requests>=2.31.0

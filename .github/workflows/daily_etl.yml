@@ -1,0 +1,51 @@
+name: Daily ETL - MyCreator Analytics
+
+on:
+  schedule:
+    # Roda todo dia às 08:00 UTC (05:00 BRT)
+    - cron: '0 8 * * *'
+  
+  # Permite execução manual
+  workflow_dispatch:
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout do repositório
+        uses: actions/checkout@v4
+      
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: 📦 Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: 🔐 Configurar credenciais GCP
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > credentials.json
+          echo "GCP_SA_KEY=${{ secrets.GCP_SA_KEY }}" >> $GITHUB_ENV
+      
+      - name: 🚀 Executar ETL
+        env:
+          MYCREATOR_COOKIE: ${{ secrets.MYCREATOR_COOKIE }}
+          MYCREATOR_TOKEN: ${{ secrets.MYCREATOR_TOKEN }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          SHEET_TAB_NAME: "Dados_Brutos"
+          WRITE_MODE: "overwrite"
+          POSTS_LIMIT: "50"
+          DEBUG_MODE: "false"
+        run: |
+          python -m src.main
+      
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          rm -f credentials.json
