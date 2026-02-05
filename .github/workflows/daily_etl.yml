@@ -29,10 +29,19 @@ jobs:
       
       - name: 🚀 Executar ETL
         env:
+          # Autenticação MyCreator (prioridade: Email/Password)
+          MYCREATOR_EMAIL: ${{ secrets.MYCREATOR_EMAIL }}
+          MYCREATOR_PASSWORD: ${{ secrets.MYCREATOR_PASSWORD }}
+          
+          # Fallback: Cookie/Token (para compatibilidade)
           MYCREATOR_COOKIE: ${{ secrets.MYCREATOR_COOKIE }}
           MYCREATOR_TOKEN: ${{ secrets.MYCREATOR_TOKEN }}
+          
+          # Google Sheets
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          
+          # Configurações
           SHEET_TAB_NAME: "Dados_Brutos"
           WRITE_MODE: "overwrite"
           POSTS_LIMIT: "50"

@@ -12,6 +12,7 @@ mycreator_analytics/
 │   └── service_account.json  # Credenciais GCP (não commitado)
 ├── src/
 │   ├── __init__.py
+│   ├── auth.py               # Autenticação automática (email/password)
 │   ├── config.py             # Configurações e variáveis de ambiente
 │   ├── extract.py            # Extração de dados da API MyCreator
 │   └── load.py               # Carga de dados no Google Sheets
@@ -27,6 +28,25 @@ mycreator_analytics/
 1. **Extract**: Busca dados de publicações da API MyCreator (4 workspaces fixos)
 2. **Transform**: Converte dados para DataFrame com colunas padronizadas
 3. **Load**: Atualiza planilha Google Sheets automaticamente
+
+## 🔐 Autenticação
+
+O sistema suporta dois modos de autenticação:
+
+### Opção 1: Cookie + Token (Manual)
+- Requer extração manual das credenciais do DevTools do navegador
+- Expira periodicamente e precisa ser atualizado manualmente
+
+### Opção 2: Email + Password (Automático) ✨ **Recomendado**
+- Login automático via API usando email/password
+- Re-autenticação automática em caso de sessão expirada (erro 401)
+- Usa `curl_cffi` para personificação de navegador e evitar bloqueios WAF
+
+```bash
+# .env
+MYCREATOR_EMAIL="seu_email@empresa.com"
+MYCREATOR_PASSWORD="sua_senha_aqui"
+```
 
 ## 🏙️ Workspaces Configurados
 
@@ -56,9 +76,15 @@ O relatório gerado contém as seguintes colunas (na ordem):
 Copie `.env.example` para `.env` e configure:
 
 ```bash
-# Autenticação MyCreator
+# Autenticação MyCreator (escolha uma opção)
+
+# Opção 1: Cookie + Token
 MYCREATOR_COOKIE=your_cookie_here
 MYCREATOR_TOKEN=your_token_here
+
+# Opção 2: Email + Password (recomendado)
+MYCREATOR_EMAIL=seu_email@empresa.com
+MYCREATOR_PASSWORD=sua_senha_aqui
 
 # Google Sheets
 GOOGLE_SHEET_ID=your_sheet_id_here
@@ -85,10 +111,12 @@ Configure os seguintes secrets no repositório:
 
 | Secret | Descrição |
 |--------|-----------|
-| `MYCREATOR_COOKIE` | Cookie de autenticação MyCreator |
-| `MYCREATOR_TOKEN` | Token de API MyCreator |
+| `MYCREATOR_EMAIL` | Email de login MyCreator |
+| `MYCREATOR_PASSWORD` | Senha de login MyCreator |
 | `GOOGLE_SHEET_ID` | ID da planilha do Google Sheets |
 | `GCP_SA_KEY` | Conteúdo JSON da Service Account |
+
+> **Nota**: Se preferir usar Cookie + Token em vez de Email + Password, configure `MYCREATOR_COOKIE` e `MYCREATOR_TOKEN` nos secrets.
 
 ## 🔧 Execução
 
@@ -108,7 +136,7 @@ O ETL é executado automaticamente:
 - **Horário**: Todo dia às 08:00 BRT (11:00 UTC)
 - **Trigger manual**: Disponível via "Run workflow" no GitHub
 
-## � Dependências
+## 📦 Dependências
 
 ```
 requests>=2.31.0
@@ -117,6 +145,7 @@ python-dotenv>=1.0.0
 gspread>=5.0.0
 google-auth>=2.0.0
 google-auth-oauthlib>=1.0.0
+curl_cffi>=0.5.0
 ```
 
 ## 📝 Licença

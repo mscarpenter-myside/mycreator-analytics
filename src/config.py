@@ -30,9 +30,13 @@ except ImportError:
 class Config:
     """Configurações do ETL."""
     
-    # Credenciais MyCreator
+    # Credenciais MyCreator (opção 1: Cookie + Token)
     cookie: str
     authorization_token: str
+    
+    # Credenciais MyCreator (opção 2: Email + Password para auto-login)
+    mycreator_email: str
+    mycreator_password: str
     
     # Google Sheets
     google_sheet_id: str
@@ -51,15 +55,33 @@ class Config:
     
     def __post_init__(self):
         """Validações após inicialização."""
-        if not self.cookie:
-            raise ValueError("❌ MYCREATOR_COOKIE não configurado!")
-        if not self.authorization_token:
-            raise ValueError("❌ MYCREATOR_TOKEN não configurado!")
+        # Valida que tem pelo menos uma forma de autenticação
+        has_cookie_auth = bool(self.cookie and self.authorization_token)
+        has_email_auth = bool(self.mycreator_email and self.mycreator_password)
+        
+        if not has_cookie_auth and not has_email_auth:
+            raise ValueError(
+                "❌ Credenciais insuficientes! Configure:\n"
+                "   - MYCREATOR_COOKIE + MYCREATOR_TOKEN, ou\n"
+                "   - MYCREATOR_EMAIL + MYCREATOR_PASSWORD"
+            )
+        
         if self.write_mode not in ("overwrite", "append"):
             raise ValueError(f"❌ WRITE_MODE inválido: {self.write_mode}")
+        
         # Garante formato correto do token
         if self.authorization_token and not self.authorization_token.startswith("Bearer "):
             object.__setattr__(self, 'authorization_token', f"Bearer {self.authorization_token}")
+    
+    @property
+    def can_auto_login(self) -> bool:
+        """Verifica se pode fazer login automático."""
+        return bool(self.mycreator_email and self.mycreator_password)
+    
+    @property
+    def has_valid_session(self) -> bool:
+        """Verifica se tem sessão válida (cookie + token)."""
+        return bool(self.cookie and self.authorization_token)
 
 def load_gcp_credentials() -> Optional[dict]:
     """
@@ -108,9 +130,13 @@ def get_config() -> Config:
         Config: Objeto de configuração validado
     """
     return Config(
-        # Credenciais MyCreator
+        # Credenciais MyCreator (Cookie + Token)
         cookie=os.environ.get("MYCREATOR_COOKIE", ""),
         authorization_token=os.environ.get("MYCREATOR_TOKEN", ""),
+        
+        # Credenciais MyCreator (Email + Password)
+        mycreator_email=os.environ.get("MYCREATOR_EMAIL", ""),
+        mycreator_password=os.environ.get("MYCREATOR_PASSWORD", ""),
         
         # Google Sheets
         google_sheet_id=os.environ.get("GOOGLE_SHEET_ID", ""),

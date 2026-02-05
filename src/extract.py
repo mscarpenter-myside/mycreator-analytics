@@ -75,21 +75,122 @@ class PostData:
 
 
 class MyCreatorExtractor:
+    """
+    Extrator de dados da API MyCreator.
+    
+    Suporta dois modos de autenticação:
+    1. Cookie + Token (credenciais manuais)
+    2. Email + Password (auto-login via API)
+    
+    Em caso de erro 401, tenta re-autenticar automaticamente.
+    """
     
     def __init__(self, config: Config):
         self.config = config
         self.session = curl_requests.Session(impersonate="chrome110")
+        self._auth_instance = None
         
+        # Inicializa headers base
         self.headers = {
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
             "Content-Type": "application/json",
-            "Cookie": config.cookie,
-            "Authorization": config.authorization_token,
             "Origin": config.base_url,
             "Referer": f"{config.base_url}/planner",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
         }
+        
+        # Configura autenticação
+        self._setup_auth()
+    
+    def _setup_auth(self):
+        """Configura autenticação inicial."""
+        if self.config.has_valid_session:
+            # Usa credenciais existentes
+            self.headers["Cookie"] = self.config.cookie
+            self.headers["Authorization"] = self.config.authorization_token
+            logger.info("🔑 Usando credenciais existentes (Cookie + Token)")
+        elif self.config.can_auto_login:
+            # Tenta fazer login automático
+            logger.info("🔐 Auto-login habilitado, realizando autenticação...")
+            self._authenticate()
+        else:
+            logger.warning("⚠️ Nenhuma credencial configurada!")
+    
+    def _authenticate(self) -> bool:
+        """
+        Realiza autenticação via email/password.
+        
+        Returns:
+            bool: True se autenticou com sucesso
+        """
+        from .auth import MyCreatorAuth
+        
+        if not self.config.can_auto_login:
+            logger.error("❌ Email/Password não configurados para auto-login")
+            return False
+        
+        self._auth_instance = MyCreatorAuth(base_url=self.config.base_url)
+        
+        if self._auth_instance.authenticate(
+            self.config.mycreator_email,
+            self.config.mycreator_password
+        ):
+            # Atualiza headers com novas credenciais
+            auth_headers = self._auth_instance.get_auth_headers()
+            self.headers.update(auth_headers)
+            
+            timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            logger.info(f"✅ Login automático realizado com sucesso!")
+            logger.info(f"📅 extraction_timestamp: {timestamp}")
+            
+            return True
+        else:
+            logger.error("❌ Falha no login automático")
+            return False
+    
+    def _ensure_authenticated(self) -> bool:
+        """
+        Garante que o extractor está autenticado.
+        
+        Returns:
+            bool: True se está autenticado
+        """
+        if "Authorization" in self.headers and self.headers["Authorization"]:
+            return True
+        
+        if self.config.can_auto_login:
+            return self._authenticate()
+        
+        return False
+    
+    def _handle_401_and_retry(self, method: str, url: str, **kwargs):
+        """
+        Executa requisição e tenta re-autenticar em caso de 401.
+        
+        Args:
+            method: Método HTTP (get, post)
+            url: URL da requisição
+            **kwargs: Argumentos adicionais para a requisição
+            
+        Returns:
+            Response ou None
+        """
+        # Primeira tentativa
+        request_func = getattr(self.session, method)
+        response = request_func(url, headers=self.headers, **kwargs)
+        
+        # Se 401 e pode fazer auto-login, tenta re-autenticar
+        if response.status_code == 401 and self.config.can_auto_login:
+            logger.warning("🔄 Sessão expirada (401), tentando re-autenticar...")
+            
+            if self._authenticate():
+                # Retry com novas credenciais
+                response = request_func(url, headers=self.headers, **kwargs)
+            else:
+                logger.error("❌ Re-autenticação falhou")
+        
+        return response
     
     # =========================================================================
     # 1. LISTAGEM DE POSTS
@@ -123,7 +224,7 @@ class MyCreatorExtractor:
         }
         
         try:
-            response = self.session.post(url, headers=self.headers, json=payload, timeout=30)
+            response = self._handle_401_and_retry("post", url, json=payload, timeout=30)
             if response.status_code != 200:
                 logger.error(f"❌ Erro Listagem: {response.status_code}")
                 return []
@@ -145,7 +246,7 @@ class MyCreatorExtractor:
         }
         
         try:
-            resp = self.session.get(url, headers=self.headers, params=params, timeout=15)
+            resp = self._handle_401_and_retry("get", url, params=params, timeout=15)
             if resp.status_code == 200:
                 try:
                     data = resp.json()
@@ -183,7 +284,7 @@ class MyCreatorExtractor:
         }
         
         try:
-            response = self.session.post(url, headers=self.headers, json=payload, timeout=10)
+            response = self._handle_401_and_retry("post", url, json=payload, timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 if self._is_valid_analytics(data):
