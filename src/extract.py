@@ -12,7 +12,7 @@ Workspaces Alvo (Fixos):
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from dataclasses import dataclass, field
 
@@ -438,8 +438,9 @@ class MyCreatorExtractor:
                 permalink = post_item.get("link", "")
                 account_id = post_item.get("platform_id")  # Chave para Analytics
                 
-                # Cria objeto PostData com timestamp de extração
-                extraction_ts = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                # Cria objeto PostData com timestamp de extração (horário de Brasília)
+                tz_brasilia = timezone(timedelta(hours=-3))
+                extraction_ts = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
                 
                 post_data = PostData(
                     internal_id=internal_id,
