@@ -12,6 +12,7 @@ Workspaces Alvo (Fixos):
 import json
 import logging
 import time
+from datetime import datetime
 from typing import Optional, List
 from dataclasses import dataclass, field
 
@@ -68,6 +69,9 @@ class PostData:
     
     # Status
     analytics_error: Optional[str] = None
+    
+    # Rastreabilidade
+    extraction_timestamp: Optional[str] = None  # Formato: DD/MM/YYYY HH:MM:SS
 
 
 class MyCreatorExtractor:
@@ -293,12 +297,27 @@ class MyCreatorExtractor:
             # Extrai metadados comuns
             common = details.get("common_sharing_details", {})
             caption = common.get("message", "")
+            
+            # Título: Prioridade -> title > video.name > multimedia[0].name
             title = common.get("title", "")
+            if not title:
+                video = common.get("video", {})
+                if isinstance(video, dict):
+                    title = video.get("name", "")
+            if not title:
+                multimedia = common.get("multimedia", [])
+                if multimedia and isinstance(multimedia, list) and len(multimedia) > 0:
+                    first_item = multimedia[0]
+                    if isinstance(first_item, dict):
+                        title = first_item.get("name", "")
+            # Remove extensão de arquivo se presente
+            if title and isinstance(title, str) and title.endswith(('.mp4', '.MP4', '.mov', '.MOV')):
+                title = title.rsplit('.', 1)[0]
+            
             exec_time = details.get("execution_time", {})
             published_at = exec_time.get("date", details.get("updated_at", ""))
             images = common.get("image", [])
             media_url = images[0] if isinstance(images, list) and images else ""
-            post_type = details.get("type", "Social")
             
             # Itera sobre 'posting' (cada postagem em cada rede)
             postings = details.get("posting", [])
@@ -307,12 +326,20 @@ class MyCreatorExtractor:
                 
             for post_item in postings:
                 posted_id = post_item.get("posted_id")
+                
+                # platform_type = Rede Social (Instagram, Facebook, etc)
                 platform_type = post_item.get("platform_type", "Instagram")
+                
+                # published_post_type = Tipo de post (REELS, FEED, STORY)
+                published_post_type = post_item.get("published_post_type", "POST")
+                
                 profile_name = post_item.get("platform", "Unknown")
                 permalink = post_item.get("link", "")
                 account_id = post_item.get("platform_id")  # Chave para Analytics
                 
-                # Cria objeto PostData
+                # Cria objeto PostData com timestamp de extração
+                extraction_ts = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                
                 post_data = PostData(
                     internal_id=internal_id,
                     external_id=posted_id,
@@ -320,12 +347,13 @@ class MyCreatorExtractor:
                     workspace_name=workspace_name,
                     title=title,
                     caption=caption,
-                    platform=platform_type,
+                    platform=platform_type,  # Rede Social (Instagram, Facebook)
                     profile_name=profile_name,
-                    post_type=post_type,
+                    post_type=published_post_type,  # Tipo de post (REELS, FEED)
                     published_at=published_at,
                     media_url=media_url,
-                    permalink=permalink
+                    permalink=permalink,
+                    extraction_timestamp=extraction_ts
                 )
                 
                 # 3. Busca Analytics
