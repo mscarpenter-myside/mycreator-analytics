@@ -2,8 +2,8 @@ name: Daily ETL - MyCreator Analytics
 
 on:
   schedule:
-    # Roda todo dia às 08:00 UTC (05:00 BRT)
-    - cron: '0 8 * * *'
+    # Roda todo dia às 08:00 BRT (11:00 UTC)
+    - cron: '0 11 * * *'
   
   # Permite execução manual
   workflow_dispatch:
@@ -27,11 +27,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: 🔐 Configurar credenciais GCP
-        run: |
-          echo '${{ secrets.GCP_SA_KEY }}' > credentials.json
-          echo "GCP_SA_KEY=${{ secrets.GCP_SA_KEY }}" >> $GITHUB_ENV
-      
       - name: 🚀 Executar ETL
         env:
           MYCREATOR_COOKIE: ${{ secrets.MYCREATOR_COOKIE }}
@@ -43,9 +38,4 @@ jobs:
           POSTS_LIMIT: "50"
           DEBUG_MODE: "false"
         run: |
-          python -m src.main
-      
-      - name: 🧹 Cleanup
-        if: always()
-        run: |
-          rm -f credentials.json
+          python run_etl.py

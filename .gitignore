@@ -107,3 +107,21 @@ logs/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# ===========================================
+# ARQUIVOS TEMPORÁRIOS / DEBUG
+# ===========================================
+
+# Relatórios Excel (usamos apenas Google Sheets)
+*.xlsx
+*.xls
+
+# Scripts de debug/teste
+debug_*.py
+test_*.py
+validate_*.py
+verify_*.py
+check_*.py
+
+# Arquivos JSON de debug
+debug_*.json
