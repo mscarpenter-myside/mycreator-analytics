@@ -24,7 +24,7 @@ class MyCreatorAuth:
     """
     
     # Endpoint de login (identificado no tráfego do site)
-    LOGIN_ENDPOINT = "/backend/auth/login"
+    LOGIN_ENDPOINT = "/backend/login"
     
     def __init__(
         self, 
@@ -67,7 +67,7 @@ class MyCreatorAuth:
         Realiza login no MyCreator.
         
         Args:
-            email: Email do usuário
+            email: Email do usuário (será usado como 'username')
             password: Senha do usuário
             
         Returns:
@@ -75,10 +75,17 @@ class MyCreatorAuth:
         """
         url = f"{self.base_url}{self.LOGIN_ENDPOINT}"
         
+        # Payload conforme capturado no DevTools
         payload = {
-            "email": email,
+            "username": email,  # MyCreator usa 'username' ao invés de 'email'
             "password": password,
-            "remember_me": True
+            "remember_me": True,
+            "client_hints": {
+                "tz": "America/Sao_Paulo",
+                "lang": "pt-BR",
+                "sr": "1920x1080",
+                "platform": "Linux"  # GitHub Actions roda em Linux
+            }
         }
         
         headers = {
@@ -87,7 +94,9 @@ class MyCreatorAuth:
             "Content-Type": "application/json",
             "Origin": self.base_url,
             "Referer": f"{self.base_url}/login",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+            "X-Frontend-Origin": f"{self.base_url}/",
+            "X-Locale": "pt-BR",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
         
         try:
