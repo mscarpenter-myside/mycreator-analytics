@@ -1,14 +1,19 @@
 """
 Módulo de Extração (Extract) do ETL.
+Fluxo: Listar -> Preview (Dados JSON) -> Analytics (com Account ID).
 
-Responsável por fazer requisições à API da MyCreator usando curl_cffi
-para bypass de proteções WAF/Cloudflare através de TLS fingerprinting.
+Workspaces Alvo (Fixos):
+- Florianópolis: 696e75c20f3354d37f074866
+- Florianópolis Continente: 696689afcddd41ec6a024adb
+- Goiânia: 696689f3c04f3fefdc0118cd
+- MyCreator: 68fbfe91e94c0946d103643d
 """
 
 import json
 import logging
-from typing import Optional
-from dataclasses import dataclass
+import time
+from typing import Optional, List
+from dataclasses import dataclass, field
 
 from curl_cffi import requests as curl_requests
 
@@ -16,30 +21,49 @@ from .config import Config
 
 logger = logging.getLogger("mycreator_etl")
 
+# =============================================================================
+# WORKSPACES ALVO (FIXOS - Não usar descoberta automática)
+# =============================================================================
+TARGET_WORKSPACES = [
+    {"id": "696e75c20f3354d37f074866", "name": "Florianópolis"},
+    {"id": "696689afcddd41ec6a024adb", "name": "Florianópolis Continente"},
+    {"id": "696689f3c04f3fefdc0118cd", "name": "Goiânia"},
+    {"id": "68fbfe91e94c0946d103643d", "name": "MyCreator"},
+]
+
 
 @dataclass
 class PostData:
-    """Estrutura de dados de um post extraído."""
-    internal_id: str
-    external_id: Optional[str]
-    title: Optional[str]
-    caption: Optional[str]
-    platform: Optional[str]
-    post_type: Optional[str]
-    published_at: Optional[str]
-    media_url: Optional[str]
-    permalink: Optional[str]
+    """
+    Estrutura de dados para um post extraído.
     
-    # Métricas de Analytics
+    IMPORTANTE: Todos os campos após o primeiro com valor padrão
+    também devem ter valores padrão para evitar TypeError.
+    """
+    # Campos obrigatórios (sem default)
+    internal_id: str
+    
+    # Campos opcionais (com default)
+    external_id: Optional[str] = None
+    workspace_id: Optional[str] = None
+    workspace_name: Optional[str] = None  # Nome da cidade/workspace
+    title: Optional[str] = None
+    caption: Optional[str] = None
+    platform: Optional[str] = None
+    profile_name: Optional[str] = None
+    post_type: Optional[str] = None
+    published_at: Optional[str] = None
+    media_url: Optional[str] = None
+    permalink: Optional[str] = None
+    
+    # Métricas de Analytics (default = 0)
     likes: int = 0
     comments: int = 0
     shares: int = 0
     saves: int = 0
     reach: int = 0
     impressions: int = 0
-    plays: int = 0  # Para vídeos/reels
-    
-    # Métricas calculadas
+    plays: int = 0
     engagement_rate: float = 0.0
     
     # Status
@@ -47,24 +71,11 @@ class PostData:
 
 
 class MyCreatorExtractor:
-    """
-    Extrator de dados da plataforma MyCreator.
-    
-    Usa curl_cffi com impersonate para simular um navegador Chrome
-    e evitar bloqueios de WAF/Cloudflare.
-    """
     
     def __init__(self, config: Config):
-        """
-        Inicializa o extrator.
-        
-        Args:
-            config: Configurações do ETL
-        """
         self.config = config
         self.session = curl_requests.Session(impersonate="chrome110")
         
-        # Headers padrão
         self.headers = {
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -73,272 +84,133 @@ class MyCreatorExtractor:
             "Authorization": config.authorization_token,
             "Origin": config.base_url,
             "Referer": f"{config.base_url}/planner",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
         }
     
-    def fetch_posts_list(self) -> list[dict]:
-        """
-        Busca a lista de posts publicados via endpoint fetchPlans.
-        
-        Returns:
-            list[dict]: Lista de posts em formato raw (JSON da API)
-        """
+    # =========================================================================
+    # 1. LISTAGEM DE POSTS
+    # =========================================================================
+    def fetch_posts_list(self, workspace_id: str) -> List[dict]:
+        """Busca lista de posts publicados de um workspace específico."""
         url = f"{self.config.base_url}{self.config.fetch_plans_endpoint}"
         
-        # Payload para buscar posts publicados
         payload = {
-            "status": "published",
+            "workspace_id": workspace_id,
             "limit": self.config.posts_limit,
-            "offset": 0,
-            "orderBy": "publishedAt",
-            "orderDirection": "desc",
+            "page": 1,
+            "statuses": ["published"],
+            "sort_column": "post_created_at",
+            "order": "descending",
+            "route_name": "list_plans",
+            "source": "web",
+            "specific_plans": [],
+            "labels": [],
+            "content_categories": [],
+            "automations": [],
+            "blog_selection": {},
+            "social_selection": {},
+            "created_by_members": [],
+            "members": [],
+            "platformSelection": [],
+            "type": [],
+            "no_social_account": False,
+            "csv_id": "",
+            "date_range": ""
         }
         
-        logger.info(f"📡 Buscando últimos {self.config.posts_limit} posts publicados...")
-        logger.debug(f"URL: {url}")
-        logger.debug(f"Payload: {json.dumps(payload, indent=2)}")
+        try:
+            response = self.session.post(url, headers=self.headers, json=payload, timeout=30)
+            if response.status_code != 200:
+                logger.error(f"❌ Erro Listagem: {response.status_code}")
+                return []
+            data = response.json()
+            return data.get("plans", [])
+        except Exception as e:
+            logger.error(f"❌ Erro na listagem: {e}")
+            return []
+
+    # =========================================================================
+    # 2. DETALHES DO POST (VIA PREVIEW)
+    # =========================================================================
+    def fetch_plan_details(self, plan_id: str, workspace_id: str) -> Optional[dict]:
+        """Busca detalhes completos de um post via endpoint /backend/plan/preview."""
+        url = f"{self.config.base_url}/backend/plan/preview"
+        params = {
+            "id": plan_id,
+            "workspace_id": workspace_id
+        }
         
         try:
-            response = self.session.post(
-                url,
-                headers=self.headers,
-                json=payload,
-                timeout=30,
-            )
-            
-            logger.debug(f"Status Code: {response.status_code}")
-            
-            if response.status_code != 200:
-                logger.error(f"❌ Erro na requisição: {response.status_code}")
-                logger.error(f"Response: {response.text[:500]}")
-                return []
-            
-            data = response.json()
-            
-            # Debug: Salva estrutura do JSON para análise
-            if self.config.debug_mode:
-                self._dump_json_structure(data, "fetch_plans_response.json")
-            
-            # Extrai lista de posts (a estrutura pode variar)
-            posts = self._extract_posts_from_response(data)
-            
-            logger.info(f"✅ Encontrados {len(posts)} posts")
-            return posts
-            
-        except Exception as e:
-            logger.error(f"❌ Exceção ao buscar posts: {e}")
-            return []
-    
-    def _extract_posts_from_response(self, data: dict) -> list[dict]:
-        """
-        Extrai lista de posts da resposta da API.
-        
-        A estrutura pode variar, então tentamos múltiplos caminhos.
-        
-        Args:
-            data: JSON da resposta
-            
-        Returns:
-            list[dict]: Lista de posts
-        """
-        # Tenta diferentes estruturas comuns de API
-        possible_paths = [
-            data.get("data", []),
-            data.get("posts", []),
-            data.get("plans", []),
-            data.get("items", []),
-            data.get("results", []),
-            data if isinstance(data, list) else [],
-        ]
-        
-        for posts in possible_paths:
-            if isinstance(posts, list) and len(posts) > 0:
-                return posts
-        
-        # Se não encontrou, loga a estrutura para debug
-        logger.warning("⚠️ Estrutura de resposta não reconhecida")
-        if self.config.debug_mode:
-            logger.debug(f"Keys disponíveis: {list(data.keys()) if isinstance(data, dict) else 'N/A'}")
-        
-        return []
-    
-    def find_external_id(self, post: dict) -> Optional[str]:
-        """
-        Busca o external_id (ID da plataforma, ex: Instagram) no JSON do post.
-        
-        O external_id pode estar em diferentes locais dependendo da estrutura.
-        Esta função faz uma busca profunda no JSON.
-        
-        Args:
-            post: Dicionário do post
-            
-        Returns:
-            str: external_id se encontrado, None caso contrário
-        """
-        # Caminhos conhecidos onde o external_id pode estar
-        known_paths = [
-            "externalId",
-            "external_id",
-            "platformId",
-            "platform_id",
-            "igMediaId",
-            "ig_media_id",
-            "mediaId",
-            "media_id",
-            "instagramId",
-            "instagram_id",
-            "postId",
-            "post_id",
-        ]
-        
-        # Busca direta no nível raiz
-        for key in known_paths:
-            if key in post and post[key]:
-                logger.debug(f"External ID encontrado em '{key}': {post[key]}")
-                return str(post[key])
-        
-        # Busca em objetos aninhados comuns
-        nested_objects = ["media", "instagram", "platform", "socialPost", "publishedPost"]
-        for obj_name in nested_objects:
-            if obj_name in post and isinstance(post[obj_name], dict):
-                for key in known_paths:
-                    if key in post[obj_name] and post[obj_name][key]:
-                        logger.debug(f"External ID encontrado em '{obj_name}.{key}': {post[obj_name][key]}")
-                        return str(post[obj_name][key])
-        
-        # Busca recursiva em todo o JSON
-        external_id = self._deep_search_key(post, known_paths)
-        if external_id:
-            return str(external_id)
-        
-        # Não encontrou - loga para debug
-        if self.config.debug_mode:
-            logger.warning(f"⚠️ External ID não encontrado para post")
-            self._log_post_structure(post)
-        
-        return None
-    
-    def _deep_search_key(self, obj: any, keys: list[str], depth: int = 0, max_depth: int = 5) -> Optional[str]:
-        """
-        Busca recursiva por chaves no JSON.
-        
-        Args:
-            obj: Objeto a ser pesquisado
-            keys: Lista de chaves a procurar
-            depth: Profundidade atual
-            max_depth: Profundidade máxima
-            
-        Returns:
-            Valor encontrado ou None
-        """
-        if depth > max_depth:
+            resp = self.session.get(url, headers=self.headers, params=params, timeout=15)
+            if resp.status_code == 200:
+                try:
+                    data = resp.json()
+                    return data.get("plan", data)
+                except json.JSONDecodeError:
+                    return None
             return None
-        
-        if isinstance(obj, dict):
-            for key in keys:
-                if key in obj and obj[key]:
-                    return obj[key]
-            
-            for value in obj.values():
-                result = self._deep_search_key(value, keys, depth + 1, max_depth)
-                if result:
-                    return result
-        
-        elif isinstance(obj, list):
-            for item in obj:
-                result = self._deep_search_key(item, keys, depth + 1, max_depth)
-                if result:
-                    return result
-        
-        return None
-    
-    def _log_post_structure(self, post: dict, indent: int = 2):
-        """Loga a estrutura do post para debug."""
-        def get_structure(obj, depth=0, max_depth=3):
-            if depth > max_depth:
-                return "..."
-            
-            if isinstance(obj, dict):
-                return {k: get_structure(v, depth + 1) for k, v in list(obj.items())[:10]}
-            elif isinstance(obj, list):
-                return [get_structure(obj[0], depth + 1)] if obj else []
-            else:
-                return type(obj).__name__
-        
-        structure = get_structure(post)
-        logger.debug(f"Estrutura do post:\n{json.dumps(structure, indent=indent)}")
-    
-    def fetch_post_analytics(self, post_id: str, is_external: bool = True) -> Optional[dict]:
+        except Exception as e:
+            logger.error(f"❌ Erro ao buscar preview {plan_id}: {e}")
+            return None
+
+    # =========================================================================
+    # 3. ANALYTICS (COM ACCOUNT_ID OBRIGATÓRIO)
+    # =========================================================================
+    def fetch_post_analytics(self, posted_id: str, workspace_id: str, platform: str, account_id: str) -> Optional[dict]:
         """
-        Busca analytics de um post específico.
+        Busca métricas de analytics de um post.
         
-        Args:
-            post_id: ID do post (external ou internal)
-            is_external: Se True, usa external_id, senão internal_id
-            
-        Returns:
-            dict: Dados de analytics ou None se falhar
+        IMPORTANTE: O account_id é obrigatório para o endpoint funcionar.
+        Ele é extraído do campo 'platform_id' dentro do objeto 'posting'.
         """
         url = f"{self.config.base_url}{self.config.analytics_endpoint}"
+        if not posted_id or not account_id:
+            return None
         
-        # O payload pode variar - tentamos diferentes estruturas
-        payloads_to_try = [
-            {"postId": post_id},
-            {"externalId": post_id},
-            {"mediaId": post_id},
-            {"id": post_id},
-            {"planId": post_id},
-        ]
+        payload = {
+            "id": posted_id,
+            "workspace_id": workspace_id,
+            "all_post_ids": [posted_id],
+            "platforms": platform.lower(),
+            "account_id": account_id,
+            "date_range": "",
+            "labels": [],
+            "content_categories": []
+        }
         
-        for payload in payloads_to_try:
-            try:
-                response = self.session.post(
-                    url,
-                    headers=self.headers,
-                    json=payload,
-                    timeout=30,
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    
-                    # Verifica se a resposta contém dados válidos
-                    if self._is_valid_analytics(data):
-                        logger.debug(f"✅ Analytics encontrado com payload: {payload}")
-                        return data
-                
-            except Exception as e:
-                logger.debug(f"Tentativa falhou com payload {payload}: {e}")
-                continue
-        
+        try:
+            response = self.session.post(url, headers=self.headers, json=payload, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if self._is_valid_analytics(data):
+                    return data
+        except Exception:
+            pass
         return None
-    
-    def _is_valid_analytics(self, data: dict) -> bool:
-        """Verifica se a resposta contém dados de analytics válidos."""
+
+    def _is_valid_analytics(self, data) -> bool:
+        """Valida se a resposta contém métricas válidas."""
         if not data:
             return False
         
-        # Verifica se tem campos típicos de analytics
-        analytics_fields = ["likes", "comments", "reach", "impressions", "saves", "plays"]
-        
-        for field in analytics_fields:
-            if field in data or (isinstance(data.get("data"), dict) and field in data["data"]):
-                return True
-        
-        return False
-    
-    def extract_analytics_metrics(self, analytics: dict) -> dict:
-        """
-        Extrai métricas do JSON de analytics.
-        
-        Args:
-            analytics: JSON de analytics da API
+        # Normaliza resposta (pode ser lista ou dict)
+        if isinstance(data, list):
+            if len(data) == 0:
+                return False
+            data = data[0]
             
-        Returns:
-            dict: Métricas extraídas
-        """
-        # Pode estar aninhado em "data"
-        data = analytics.get("data", analytics)
+        if isinstance(data, dict):
+            metrics = ["likes", "engagement", "reach", "impressions", "comments"]
+            return any(k in data for k in metrics)
+        return False
+
+    def extract_analytics_metrics(self, analytics) -> dict:
+        """Extrai métricas numéricas da resposta de analytics."""
+        data = analytics
+        if isinstance(data, list) and len(data) > 0:
+            data = data[0]
+        if not isinstance(data, dict):
+            data = {}
         
         return {
             "likes": self._safe_int(data, ["likes", "likeCount", "like_count"]),
@@ -347,145 +219,147 @@ class MyCreatorExtractor:
             "saves": self._safe_int(data, ["saves", "saveCount", "save_count", "saved"]),
             "reach": self._safe_int(data, ["reach", "reachCount", "reach_count"]),
             "impressions": self._safe_int(data, ["impressions", "impressionCount", "impression_count"]),
-            "plays": self._safe_int(data, ["plays", "videoViews", "video_views", "views"]),
+            "plays": self._safe_int(data, ["plays", "videoViews", "views", "video_views"]),
         }
     
-    def _safe_int(self, data: dict, keys: list[str]) -> int:
-        """Extrai valor inteiro de múltiplas chaves possíveis."""
+    def _safe_int(self, data: dict, keys: List[str]) -> int:
+        """Extrai valor inteiro de forma segura, tratando formatação."""
         for key in keys:
             if key in data:
                 try:
-                    return int(data[key] or 0)
+                    val = str(data[key] or 0).replace(",", "").replace(".", "")
+                    return int(val)
                 except (ValueError, TypeError):
                     continue
         return 0
-    
-    def extract_post_metadata(self, post: dict) -> dict:
+
+    # =========================================================================
+    # ORQUESTRADOR: EXTRAÇÃO DE TODOS OS WORKSPACES
+    # =========================================================================
+    def extract_from_workspaces(self, workspaces: List[dict] = None) -> List[PostData]:
         """
-        Extrai metadados de um post.
+        Extrai dados de múltiplos workspaces.
         
         Args:
-            post: JSON do post
+            workspaces: Lista de dicts com 'id' e 'name'. Se None, usa TARGET_WORKSPACES.
             
         Returns:
-            dict: Metadados extraídos
+            Lista consolidada de PostData de todos os workspaces.
         """
-        return {
-            "internal_id": str(post.get("id", post.get("_id", post.get("planId", "")))),
-            "title": post.get("title", post.get("name", "")),
-            "caption": post.get("caption", post.get("description", post.get("content", ""))),
-            "platform": post.get("platform", post.get("socialNetwork", post.get("network", ""))),
-            "post_type": post.get("type", post.get("mediaType", post.get("postType", ""))),
-            "published_at": post.get("publishedAt", post.get("published_at", post.get("createdAt", ""))),
-            "media_url": self._extract_media_url(post),
-            "permalink": post.get("permalink", post.get("url", post.get("link", ""))),
-        }
+        if workspaces is None:
+            workspaces = TARGET_WORKSPACES
+            
+        all_results: List[PostData] = []
+        
+        for ws in workspaces:
+            ws_id = ws["id"]
+            ws_name = ws["name"]
+            
+            logger.info(f"\n{'='*60}")
+            logger.info(f"🏙️ WORKSPACE: {ws_name} ({ws_id})")
+            logger.info(f"{'='*60}")
+            
+            results = self._extract_single_workspace(ws_id, ws_name)
+            all_results.extend(results)
+            
+            logger.info(f"✅ {ws_name}: {len(results)} posts extraídos")
+            time.sleep(0.5)  # Pausa entre workspaces
+        
+        logger.info(f"\n🏁 TOTAL GLOBAL: {len(all_results)} posts de {len(workspaces)} workspaces")
+        return all_results
     
-    def _extract_media_url(self, post: dict) -> str:
-        """Extrai URL da mídia do post."""
-        # Tenta diferentes caminhos
-        media_paths = [
-            post.get("mediaUrl"),
-            post.get("media_url"),
-            post.get("imageUrl"),
-            post.get("thumbnailUrl"),
-        ]
-        
-        # Tenta em objetos aninhados
-        if "media" in post and isinstance(post["media"], dict):
-            media_paths.extend([
-                post["media"].get("url"),
-                post["media"].get("thumbnailUrl"),
-            ])
-        
-        if "files" in post and isinstance(post["files"], list) and post["files"]:
-            media_paths.append(post["files"][0].get("url"))
-        
-        for url in media_paths:
-            if url:
-                return str(url)
-        
-        return ""
-    
-    def extract_all(self) -> list[PostData]:
-        """
-        Executa extração completa: lista de posts + analytics de cada um.
-        
-        Returns:
-            list[PostData]: Lista de posts com dados completos
-        """
-        results: list[PostData] = []
+    def _extract_single_workspace(self, workspace_id: str, workspace_name: str) -> List[PostData]:
+        """Extrai todos os posts de um único workspace."""
+        results: List[PostData] = []
         
         # 1. Busca lista de posts
-        posts = self.fetch_posts_list()
+        plans = self.fetch_posts_list(workspace_id)
         
-        if not posts:
-            logger.warning("⚠️ Nenhum post encontrado para processar")
+        if not plans:
+            logger.warning(f"⚠️ Nenhum post encontrado em {workspace_name}")
             return results
         
-        # 2. Para cada post, busca analytics
-        for i, post in enumerate(posts, 1):
-            logger.info(f"📊 Processando post {i}/{len(posts)}...")
-            
-            # Extrai metadados básicos
-            metadata = self.extract_post_metadata(post)
-            
-            # Busca external_id
-            external_id = self.find_external_id(post)
-            
-            # Cria objeto PostData
-            post_data = PostData(
-                internal_id=metadata["internal_id"],
-                external_id=external_id,
-                title=metadata["title"],
-                caption=metadata["caption"],
-                platform=metadata["platform"],
-                post_type=metadata["post_type"],
-                published_at=metadata["published_at"],
-                media_url=metadata["media_url"],
-                permalink=metadata["permalink"],
-            )
-            
-            # Tenta buscar analytics
-            analytics = None
-            analytics_error = None
-            
-            # Tenta primeiro com external_id (se disponível)
-            if external_id:
-                analytics = self.fetch_post_analytics(external_id, is_external=True)
-            
-            # Se não funcionou, tenta com internal_id
-            if not analytics and metadata["internal_id"]:
-                analytics = self.fetch_post_analytics(metadata["internal_id"], is_external=False)
-            
-            if analytics:
-                metrics = self.extract_analytics_metrics(analytics)
-                post_data.likes = metrics["likes"]
-                post_data.comments = metrics["comments"]
-                post_data.shares = metrics["shares"]
-                post_data.saves = metrics["saves"]
-                post_data.reach = metrics["reach"]
-                post_data.impressions = metrics["impressions"]
-                post_data.plays = metrics["plays"]
-                logger.debug(f"  ✅ Analytics: {metrics['likes']} likes, {metrics['reach']} reach")
-            else:
-                post_data.analytics_error = "Não foi possível obter analytics"
-                logger.warning(f"  ⚠️ Analytics não disponível para post {metadata['internal_id']}")
-            
-            results.append(post_data)
+        total = len(plans)
+        logger.info(f"📦 Processando {total} posts...")
         
-        logger.info(f"✅ Extração concluída: {len(results)} posts processados")
+        for i, plan_summary in enumerate(plans, 1):
+            internal_id = plan_summary.get("_id")
+            
+            # 2. Busca detalhes via Preview
+            details = self.fetch_plan_details(internal_id, workspace_id)
+            if not details:
+                continue
+            
+            # Extrai metadados comuns
+            common = details.get("common_sharing_details", {})
+            caption = common.get("message", "")
+            title = common.get("title", "")
+            exec_time = details.get("execution_time", {})
+            published_at = exec_time.get("date", details.get("updated_at", ""))
+            images = common.get("image", [])
+            media_url = images[0] if isinstance(images, list) and images else ""
+            post_type = details.get("type", "Social")
+            
+            # Itera sobre 'posting' (cada postagem em cada rede)
+            postings = details.get("posting", [])
+            if not postings:
+                continue
+                
+            for post_item in postings:
+                posted_id = post_item.get("posted_id")
+                platform_type = post_item.get("platform_type", "Instagram")
+                profile_name = post_item.get("platform", "Unknown")
+                permalink = post_item.get("link", "")
+                account_id = post_item.get("platform_id")  # Chave para Analytics
+                
+                # Cria objeto PostData
+                post_data = PostData(
+                    internal_id=internal_id,
+                    external_id=posted_id,
+                    workspace_id=workspace_id,
+                    workspace_name=workspace_name,
+                    title=title,
+                    caption=caption,
+                    platform=platform_type,
+                    profile_name=profile_name,
+                    post_type=post_type,
+                    published_at=published_at,
+                    media_url=media_url,
+                    permalink=permalink
+                )
+                
+                # 3. Busca Analytics
+                if posted_id and account_id:
+                    analytics = self.fetch_post_analytics(posted_id, workspace_id, platform_type, account_id)
+                    
+                    if analytics:
+                        metrics = self.extract_analytics_metrics(analytics)
+                        post_data.likes = metrics["likes"]
+                        post_data.comments = metrics["comments"]
+                        post_data.shares = metrics["shares"]
+                        post_data.saves = metrics["saves"]
+                        post_data.reach = metrics["reach"]
+                        post_data.impressions = metrics["impressions"]
+                        post_data.plays = metrics["plays"]
+                        
+                        # Calcula taxa de engajamento
+                        if post_data.reach > 0:
+                            engagement = post_data.likes + post_data.saves + post_data.comments
+                            post_data.engagement_rate = round((engagement / post_data.reach) * 100, 2)
+                        
+                        logger.info(f"   ✅ [{i}/{total}] {profile_name}: {metrics['likes']} Likes | {metrics['reach']} Reach")
+                    else:
+                        post_data.analytics_error = "Sem dados"
+                else:
+                    post_data.analytics_error = "ID ou Conta ausente"
+                
+                results.append(post_data)
+                
+            time.sleep(0.3)  # Respeito à API
+            
         return results
     
-    def _dump_json_structure(self, data: dict, filename: str):
-        """Salva JSON de debug em arquivo."""
-        try:
-            debug_path = Path(__file__).parent.parent / "debug"
-            debug_path.mkdir(exist_ok=True)
-            
-            with open(debug_path / filename, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            
-            logger.debug(f"📝 JSON salvo em: {debug_path / filename}")
-        except Exception as e:
-            logger.debug(f"Não foi possível salvar debug JSON: {e}")
+    # Mantém método legado para compatibilidade
+    def extract_all(self) -> List[PostData]:
+        """Método legado - redireciona para extract_from_workspaces."""
+        return self.extract_from_workspaces()

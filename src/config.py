@@ -53,20 +53,13 @@ class Config:
         """Validações após inicialização."""
         if not self.cookie:
             raise ValueError("❌ MYCREATOR_COOKIE não configurado!")
-        
         if not self.authorization_token:
             raise ValueError("❌ MYCREATOR_TOKEN não configurado!")
-        
-        if not self.google_sheet_id:
-            raise ValueError("❌ GOOGLE_SHEET_ID não configurado!")
-        
         if self.write_mode not in ("overwrite", "append"):
             raise ValueError(f"❌ WRITE_MODE inválido: {self.write_mode}")
-        
-        # Adiciona "Bearer " se não estiver presente no token
-        if not self.authorization_token.startswith("Bearer "):
-            self.authorization_token = f"Bearer {self.authorization_token}"
-
+        # Garante formato correto do token
+        if self.authorization_token and not self.authorization_token.startswith("Bearer "):
+            object.__setattr__(self, 'authorization_token', f"Bearer {self.authorization_token}")
 
 def load_gcp_credentials() -> Optional[dict]:
     """

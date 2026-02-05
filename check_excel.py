@@ -1,0 +1,10 @@
+import pandas as pd
+df = pd.read_excel("Relatorio_Analytics_20260204_2136.xlsx")
+print("Colunas:", list(df.columns))
+print("Linhas:", len(df))
+print("\nPor Cidade:")
+print(df.groupby("Cidade").size())
+print("\nLikes por Cidade:")
+print(df.groupby("Cidade")["Likes"].sum())
+print("\nPrimeira linha:")
+print(df.iloc[0])
