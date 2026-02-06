@@ -30,6 +30,9 @@ TARGET_WORKSPACES = [
     {"id": "696689afcddd41ec6a024adb", "name": "Florianópolis Continente"},
     {"id": "696689f3c04f3fefdc0118cd", "name": "Goiânia"},
     {"id": "68fbfe91e94c0946d103643d", "name": "MyCreator"},
+    {"id": "69668a27c14df8f16407dfa9", "name": "Balneário Piçarras"},
+    {"id": "696688d158d9e25f340ad964", "name": "Belo Horizonte"},
+    {"id": "696689cc90763878ba06a27b", "name": "Curitiba"},
 ]
 
 
