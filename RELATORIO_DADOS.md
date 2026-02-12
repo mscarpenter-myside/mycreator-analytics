@@ -101,4 +101,4 @@ Com essas duas tabelas, o time de Marketing pode responder perguntas complexas:
 
 ---
 
-**Equipe de Dados & Automação**
+**Engenharia de Conteúdo & Automação**
