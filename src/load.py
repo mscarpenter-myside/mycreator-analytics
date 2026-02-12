@@ -73,16 +73,21 @@ class GoogleSheetsLoader:
             logger.error(f"❌ Erro na autenticação: {e}")
             return False
     
-    def open_spreadsheet(self) -> bool:
+    def open_spreadsheet(self, tab_name: str = None) -> bool:
         """
         Abre a planilha e a aba especificadas.
         
+        Args:
+            tab_name: Nome da aba a abrir (opcional, usa config se None)
+            
         Returns:
             bool: True se abriu com sucesso
         """
         if not self.client:
             logger.error("❌ Cliente não conectado! Chame connect() primeiro.")
             return False
+            
+        target_tab = tab_name or self.config.sheet_tab_name
         
         try:
             logger.info(f"📂 Abrindo planilha: {self.config.google_sheet_id}")
@@ -90,15 +95,15 @@ class GoogleSheetsLoader:
             # Abre pelo ID da planilha
             self.spreadsheet = self.client.open_by_key(self.config.google_sheet_id)
             
-            logger.info(f"📑 Abrindo aba: {self.config.sheet_tab_name}")
+            logger.info(f"📑 Abrindo aba: {target_tab}")
             
             # Tenta abrir aba existente ou cria nova
             try:
-                self.worksheet = self.spreadsheet.worksheet(self.config.sheet_tab_name)
+                self.worksheet = self.spreadsheet.worksheet(target_tab)
             except gspread.WorksheetNotFound:
-                logger.info(f"📝 Aba não existe. Criando: {self.config.sheet_tab_name}")
+                logger.info(f"📝 Aba não existe. Criando: {target_tab}")
                 self.worksheet = self.spreadsheet.add_worksheet(
-                    title=self.config.sheet_tab_name,
+                    title=target_tab,
                     rows=1000,
                     cols=26,
                 )
@@ -276,13 +281,14 @@ class GoogleSheetsLoader:
         logger.debug("🔌 Conexões fechadas")
 
 
-def load_to_sheets(df: pd.DataFrame, config: Config) -> bool:
+def load_to_sheets(df: pd.DataFrame, config: Config, tab_name: str = None) -> bool:
     """
     Função helper para carregar dados no Google Sheets.
     
     Args:
         df: DataFrame com dados
         config: Configurações do ETL
+        tab_name: Nome da aba (opcional)
         
     Returns:
         bool: True se carregou com sucesso
@@ -295,7 +301,7 @@ def load_to_sheets(df: pd.DataFrame, config: Config) -> bool:
             return False
         
         # Abre planilha
-        if not loader.open_spreadsheet():
+        if not loader.open_spreadsheet(tab_name):
             return False
         
         # Carrega dados

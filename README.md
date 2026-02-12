@@ -56,6 +56,10 @@ MYCREATOR_PASSWORD="sua_senha_aqui"
 | Florianópolis Continente | `696689afcddd41ec6a024adb` |
 | Goiânia | `696689f3c04f3fefdc0118cd` |
 | MyCreator | `68fbfe91e94c0946d103643d` |
+| Balneário Piçarras | `69668a27c14df8f16407dfa9` |
+| Belo Horizonte | `696688d158d9e25f340ad964` |
+| Curitiba | `696689cc90763878ba06a27b` |
+
 
 ## 📊 Colunas do Relatório
 

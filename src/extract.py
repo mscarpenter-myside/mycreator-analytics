@@ -56,9 +56,11 @@ class PostData:
     platform: Optional[str] = None
     profile_name: Optional[str] = None
     post_type: Optional[str] = None
+    media_type: Optional[str] = None  # Tipo de mídia do analytics (Reels, Carousel, Video, etc.)
     published_at: Optional[str] = None
     media_url: Optional[str] = None
     permalink: Optional[str] = None
+    follower_count: int = 0  # Seguidores do perfil no momento da extração
     
     # Métricas de Analytics (default = 0)
     likes: int = 0
@@ -74,7 +76,25 @@ class PostData:
     analytics_error: Optional[str] = None
     
     # Rastreabilidade
+    # Rastreabilidade
     extraction_timestamp: Optional[str] = None  # Formato: DD/MM/YYYY HH:MM:SS
+
+
+@dataclass
+class ProfileData:
+    """Dados consolidados de um perfil (Instagram, etc)."""
+    workspace_name: str
+    workspace_id: str
+    profile_name: str
+    platform_id: str
+    platform: str
+    followers: int
+    posts_count: int
+    engagement_total: int
+    engagement_rate: float
+    reach_total: float
+    impressions_total: float
+    extraction_timestamp: str
 
 
 class MyCreatorExtractor:
@@ -313,7 +333,7 @@ class MyCreatorExtractor:
         return False
 
     def extract_analytics_metrics(self, analytics) -> dict:
-        """Extrai métricas numéricas da resposta de analytics."""
+        """Extrai métricas numéricas e tipo de mídia da resposta de analytics."""
         data = analytics
         if isinstance(data, list) and len(data) > 0:
             data = data[0]
@@ -328,6 +348,7 @@ class MyCreatorExtractor:
             "reach": self._safe_int(data, ["reach", "reachCount", "reach_count"]),
             "impressions": self._safe_int(data, ["impressions", "impressionCount", "impression_count"]),
             "plays": self._safe_int(data, ["plays", "videoViews", "views", "video_views"]),
+            "media_type": data.get("media_type", ""),  # Reels, Carousel, Video, Image, etc.
         }
     
     def _safe_int(self, data: dict, keys: List[str]) -> int:
@@ -341,6 +362,93 @@ class MyCreatorExtractor:
                     continue
         return 0
 
+    # =========================================================================
+    # FOLLOWER COUNT: via /backend/analytics/overview/getSummary
+    # =========================================================================
+    def fetch_workspace_follower_counts(self, workspace_id: str) -> dict:
+        """
+        Busca contagem de seguidores por conta Instagram de um workspace.
+        
+        Chama getSummary com cada conta individual para obter o follower_count.
+        
+        Returns:
+            Dict mapeando platform_identifier (str) -> followers (int)
+        """
+        follower_map = {}
+        
+        try:
+            # 1. Busca contas Instagram do workspace
+            resp = self._handle_401_and_retry(
+                "post",
+                f"{self.config.base_url}/backend/fetchSocialAccounts",
+                json={"workspace_id": workspace_id},
+                timeout=15
+            )
+            if resp.status_code != 200:
+                logger.warning(f"⚠️ fetchSocialAccounts falhou: {resp.status_code}")
+                return follower_map
+            
+            social_data = resp.json()
+            ig_data = social_data.get("instagram", {})
+            ig_accounts = ig_data.get("accounts", []) if isinstance(ig_data, dict) else []
+            
+            if not ig_accounts:
+                return follower_map
+            
+            # 2. Para cada conta, busca followers via getSummary
+            from datetime import datetime, timedelta, timezone as tz
+            now = datetime.now(tz(timedelta(hours=-3)))
+            end_date = now.strftime("%Y-%m-%d")
+            start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+            date_range = f"{start_date} - {end_date}"
+            
+            for acc in ig_accounts:
+                ig_id = str(acc.get("platform_identifier") or acc.get("instagram_id") or "")
+                name = acc.get("name", "Unknown")
+                
+                if not ig_id:
+                    continue
+                
+                payload = {
+                    "workspace_id": workspace_id,
+                    "date": date_range,
+                    "timezone": "America/Sao_Paulo",
+                    "facebook_accounts": [],
+                    "instagram_accounts": [ig_id],
+                    "linkedin_accounts": [],
+                    "tiktok_accounts": [],
+                    "youtube_accounts": [],
+                    "pinterest_accounts": [],
+                    "twitter_accounts": [],
+                    "gmb_accounts": [],
+                    "tumblr_accounts": []
+                }
+                
+                try:
+                    resp = self._handle_401_and_retry(
+                        "post",
+                        f"{self.config.base_url}/backend/analytics/overview/getSummary",
+                        json=payload,
+                        timeout=10
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        summary = data.get("summary", {})
+                        followers = summary.get("followers", 0)
+                        follower_map[ig_id] = followers
+                        logger.info(f"   👤 {name}: {followers:,} seguidores")
+                    else:
+                        logger.warning(f"   ⚠️ getSummary para {name}: {resp.status_code}")
+                except Exception as e:
+                    logger.warning(f"   ⚠️ Erro getSummary {name}: {e}")
+                
+                time.sleep(0.2)
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Erro ao buscar follower counts: {e}")
+        
+        return follower_map
+    
     # =========================================================================
     # ORQUESTRADOR: EXTRAÇÃO DE TODOS OS WORKSPACES
     # =========================================================================
@@ -379,6 +487,10 @@ class MyCreatorExtractor:
     def _extract_single_workspace(self, workspace_id: str, workspace_name: str) -> List[PostData]:
         """Extrai todos os posts de um único workspace."""
         results: List[PostData] = []
+        
+        # 0. Busca follower counts por conta
+        logger.info(f"👤 Buscando seguidores dos perfis...")
+        follower_map = self.fetch_workspace_follower_counts(workspace_id)
         
         # 1. Busca lista de posts
         plans = self.fetch_posts_list(workspace_id)
@@ -445,6 +557,9 @@ class MyCreatorExtractor:
                 tz_brasilia = timezone(timedelta(hours=-3))
                 extraction_ts = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
                 
+                # Busca follower count do perfil deste post
+                post_follower_count = follower_map.get(str(account_id), 0) if account_id else 0
+                
                 post_data = PostData(
                     internal_id=internal_id,
                     external_id=posted_id,
@@ -458,6 +573,7 @@ class MyCreatorExtractor:
                     published_at=published_at,
                     media_url=media_url,
                     permalink=permalink,
+                    follower_count=post_follower_count,
                     extraction_timestamp=extraction_ts
                 )
                 
@@ -474,6 +590,7 @@ class MyCreatorExtractor:
                         post_data.reach = metrics["reach"]
                         post_data.impressions = metrics["impressions"]
                         post_data.plays = metrics["plays"]
+                        post_data.media_type = metrics.get("media_type", "")
                         
                         # Calcula taxa de engajamento
                         if post_data.reach > 0:
@@ -492,7 +609,258 @@ class MyCreatorExtractor:
             
         return results
     
-    # Mantém método legado para compatibilidade
-    def extract_all(self) -> List[PostData]:
-        """Método legado - redireciona para extract_from_workspaces."""
-        return self.extract_from_workspaces()
+    # =========================================================================
+    # EXTRAÇÃO DE PERFIS (NOVA ABA)
+    # =========================================================================
+    def extract_profiles(self, workspaces: List[dict] = None) -> List[ProfileData]:
+        """
+        Extrai dados consolidados de todos os perfis dos workspaces.
+        
+        Returns:
+            Lista de objetos ProfileData para a aba 'Perfis'.
+        """
+        if workspaces is None:
+            workspaces = TARGET_WORKSPACES
+            
+        all_profiles: List[ProfileData] = []
+        
+        # Timestamp de Brasília
+        from datetime import datetime, timedelta, timezone as tz
+        tz_brasilia = tz(timedelta(hours=-3))
+        extraction_ts = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+        
+        logger.info(f"\n{'='*60}")
+        logger.info(f"👥 INICIANDO EXTRAÇÃO DE PERFIS")
+        logger.info(f"{'='*60}")
+        
+        for ws in workspaces:
+            ws_id = ws["id"]
+            ws_name = ws["name"]
+            
+            try:
+                # 1. Busca contas Instagram do workspace
+                resp = self._handle_401_and_retry(
+                    "post",
+                    f"{self.config.base_url}/backend/fetchSocialAccounts",
+                    json={"workspace_id": ws_id},
+                    timeout=15
+                )
+                
+                if resp.status_code != 200:
+                    continue
+                
+                social_data = resp.json()
+                ig_data = social_data.get("instagram", {})
+                ig_accounts = ig_data.get("accounts", []) if isinstance(ig_data, dict) else []
+                
+                if not ig_accounts:
+                    continue
+                
+                # 2. Para cada conta, busca detalhes via getSummary
+                # Define intervalo de 30 dias para métricas de engajamento
+                now = datetime.now(tz_brasilia)
+                end_date = now.strftime("%Y-%m-%d")
+                start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+                date_range = f"{start_date} - {end_date}"
+                
+                for acc in ig_accounts:
+                    ig_id = str(acc.get("platform_identifier") or acc.get("instagram_id") or "")
+                    name = acc.get("name", "Unknown")
+                    
+                    if not ig_id:
+                        continue
+                        
+                    payload = {
+                        "workspace_id": ws_id,
+                        "date": date_range,
+                        "timezone": "America/Sao_Paulo",
+                        "facebook_accounts": [],
+                        "instagram_accounts": [ig_id],
+                        "linkedin_accounts": [],
+                        "tiktok_accounts": [],
+                        "youtube_accounts": [],
+                        "pinterest_accounts": [],
+                        "twitter_accounts": [],
+                        "gmb_accounts": [],
+                        "tumblr_accounts": []
+                    }
+                    
+                    try:
+                        resp_summary = self._handle_401_and_retry(
+                            "post",
+                            f"{self.config.base_url}/backend/analytics/overview/getSummary",
+                            json=payload,
+                            timeout=10
+                        )
+                        
+                        followers = 0
+                        posts = 0
+                        engagement = 0
+                        engagement_rate = 0.0
+                        reach = 0.0
+                        impressions = 0.0
+                        
+                        if resp_summary.status_code == 200:
+                            data = resp_summary.json()
+                            summary = data.get("summary", {})
+                            followers = summary.get("followers", 0)
+                            posts = summary.get("posts", 0)
+                            engagement = summary.get("engagement", 0)
+                            engagement_rate = summary.get("engagement_rate", 0.0)
+                            reach = summary.get("reach", 0.0)
+                            impressions = summary.get("impressions", 0.0)
+                        
+                        profile = ProfileData(
+                            workspace_name=ws_name,
+                            workspace_id=ws_id,
+                            profile_name=name,
+                            platform_id=ig_id,
+                            platform="Instagram",
+                            followers=followers,
+                            posts_count=posts,
+                            engagement_total=engagement,
+                            engagement_rate=engagement_rate,
+                            reach_total=reach,
+                            impressions_total=impressions,
+                            extraction_timestamp=extraction_ts
+                        )
+                        all_profiles.append(profile)
+                        logger.info(f"   👤 {ws_name} -> {name}: {followers} seg.")
+                        
+                    except Exception as e:
+                        logger.error(f"Erro ao extrair perfil {name}: {e}")
+                    
+                    time.sleep(0.2)
+                    
+            except Exception as e:
+                logger.error(f"Erro ao processar workspace {ws_name} para perfis: {e}")
+                
+        return all_profiles
+
+    # =========================================================================
+    # EXTRAÇÃO DE PERFIS (NOVA ABA)
+    # =========================================================================
+    def extract_profiles(self, workspaces: List[dict] = None) -> List[ProfileData]:
+        """
+        Extrai dados consolidados de todos os perfis dos workspaces.
+        
+        Returns:
+            Lista de objetos ProfileData para a aba 'Perfis'.
+        """
+        if workspaces is None:
+            workspaces = TARGET_WORKSPACES
+            
+        all_profiles: List[ProfileData] = []
+        
+        # Timestamp de Brasília
+        from datetime import datetime, timedelta, timezone as tz
+        tz_brasilia = tz(timedelta(hours=-3))
+        extraction_ts = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+        
+        logger.info(f"\n{'='*60}")
+        logger.info(f"👥 INICIANDO EXTRAÇÃO DE PERFIS")
+        logger.info(f"{'='*60}")
+        
+        for ws in workspaces:
+            ws_id = ws["id"]
+            ws_name = ws["name"]
+            
+            try:
+                # 1. Busca contas Instagram do workspace
+                resp = self._handle_401_and_retry(
+                    "post",
+                    f"{self.config.base_url}/backend/fetchSocialAccounts",
+                    json={"workspace_id": ws_id},
+                    timeout=15
+                )
+                
+                if resp.status_code != 200:
+                    continue
+                
+                social_data = resp.json()
+                ig_data = social_data.get("instagram", {})
+                ig_accounts = ig_data.get("accounts", []) if isinstance(ig_data, dict) else []
+                
+                if not ig_accounts:
+                    continue
+                
+                # 2. Para cada conta, busca detalhes via getSummary
+                # Define intervalo de 30 dias para métricas de engajamento
+                now = datetime.now(tz_brasilia)
+                end_date = now.strftime("%Y-%m-%d")
+                start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+                date_range = f"{start_date} - {end_date}"
+                
+                for acc in ig_accounts:
+                    ig_id = str(acc.get("platform_identifier") or acc.get("instagram_id") or "")
+                    name = acc.get("name", "Unknown")
+                    
+                    if not ig_id:
+                        continue
+                        
+                    payload = {
+                        "workspace_id": ws_id,
+                        "date": date_range,
+                        "timezone": "America/Sao_Paulo",
+                        "facebook_accounts": [],
+                        "instagram_accounts": [ig_id],
+                        "linkedin_accounts": [],
+                        "tiktok_accounts": [],
+                        "youtube_accounts": [],
+                        "pinterest_accounts": [],
+                        "twitter_accounts": [],
+                        "gmb_accounts": [],
+                        "tumblr_accounts": []
+                    }
+                    
+                    try:
+                        resp_summary = self._handle_401_and_retry(
+                            "post",
+                            f"{self.config.base_url}/backend/analytics/overview/getSummary",
+                            json=payload,
+                            timeout=10
+                        )
+                        
+                        followers = 0
+                        posts = 0
+                        engagement = 0
+                        engagement_rate = 0.0
+                        reach = 0.0
+                        impressions = 0.0
+                        
+                        if resp_summary.status_code == 200:
+                            data = resp_summary.json()
+                            summary = data.get("summary", {})
+                            followers = summary.get("followers", 0)
+                            posts = summary.get("posts", 0)
+                            engagement = summary.get("engagement", 0)
+                            engagement_rate = summary.get("engagement_rate", 0.0)
+                            reach = summary.get("reach", 0.0)
+                            impressions = summary.get("impressions", 0.0)
+                        
+                        profile = ProfileData(
+                            workspace_name=ws_name,
+                            workspace_id=ws_id,
+                            profile_name=name,
+                            platform_id=ig_id,
+                            platform="Instagram",
+                            followers=followers,
+                            posts_count=posts,
+                            engagement_total=engagement,
+                            engagement_rate=engagement_rate,
+                            reach_total=reach,
+                            impressions_total=impressions,
+                            extraction_timestamp=extraction_ts
+                        )
+                        all_profiles.append(profile)
+                        logger.info(f"   👤 {ws_name} -> {name}: {followers} seg. ({engagement_rate}% engaj.)")
+                        
+                    except Exception as e:
+                        logger.error(f"Erro ao extrair perfil {name}: {e}")
+                    
+                    time.sleep(0.2)
+                    
+            except Exception as e:
+                logger.error(f"Erro ao processar workspace {ws_name} para perfis: {e}")
+                
+        return all_profiles

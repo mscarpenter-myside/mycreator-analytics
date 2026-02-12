@@ -58,6 +58,13 @@ def run_etl() -> bool:
         
         if not all_posts:
             logger.warning("⚠️ Nenhum post extraído de nenhum workspace.")
+        
+        # Extrai perfis (NOVA FUNCIONALIDADE)
+        logger.info("\n📡 ETAPA 1.2: EXTRAÇÃO DE PERFIS")
+        all_profiles = extractor.extract_profiles()
+        
+        if not all_posts and not all_profiles:
+            logger.warning("⚠️ Nada extraído (nem posts nem perfis).")
             return False
         
         # =====================================================================
@@ -66,8 +73,13 @@ def run_etl() -> bool:
         logger.info("\n🔄 ETAPA 2: TRANSFORMAÇÃO")
         
         # Converte lista de dataclass para DataFrame
-        records = [asdict(post) for post in all_posts]
-        df = pd.DataFrame(records)
+        # Converte lista de dataclass para DataFrame (Posts)
+        records_posts = [asdict(post) for post in all_posts]
+        df_posts = pd.DataFrame(records_posts)
+        
+        # Converte lista de dataclass para DataFrame (Perfis)
+        records_profiles = [asdict(prof) for prof in all_profiles]
+        df_profiles = pd.DataFrame(records_profiles)
         
         # =================================================================
         # MAPEAMENTO DE COLUNAS - ORDEM DEFINITIVA PARA DIRETORIA
@@ -79,7 +91,9 @@ def run_etl() -> bool:
             "published_at": "Data de Publicação",
             "platform": "Rede Social",  # Instagram, Facebook, etc
             "profile_name": "Perfil",
+            "follower_count": "Seguidores",  # Total de seguidores do perfil
             "post_type": "Tipo",  # REELS, FEED, STORY
+            "media_type": "Tipo de Mídia",  # Reels, Carousel, Video, Image (do Instagram Analytics)
             
             # CONTEÚDO
             "title": "Título",  # Nome do vídeo/publicação
@@ -105,8 +119,27 @@ def run_etl() -> bool:
         }
         
         # Seleciona e renomeia colunas existentes (preserva ordem do dict)
-        columns_to_export = [col for col in column_mapping.keys() if col in df.columns]
-        df_final = df[columns_to_export].rename(columns=column_mapping)
+        # Seleciona e renomeia colunas existentes (preserva ordem do dict)
+        columns_to_export = [col for col in column_mapping.keys() if col in df_posts.columns]
+        df_final = df_posts[columns_to_export].rename(columns=column_mapping)
+        
+        # =================================================================
+        # MAPEAMENTO DE COLUNAS - PERFIS
+        # =================================================================
+        profile_mapping = {
+            "workspace_name": "Cidade",
+            "profile_name": "Perfil",
+            "followers": "Seguidores",
+            "posts_count": "Total Posts",
+            "engagement_rate": "Engajamento Médio (%)",
+            "engagement_total": "Total Engajamento (30d)",
+            "reach_total": "Alcance Total (30d)",
+            "impressions_total": "Impressões Totais (30d)",
+            "extraction_timestamp": "Atualizado em"
+        }
+        
+        columns_profiles_export = [col for col in profile_mapping.keys() if col in df_profiles.columns]
+        df_final_profiles = df_profiles[columns_profiles_export].rename(columns=profile_mapping)
         
         # Formata Data de Publicação apenas como data (DD/MM/YYYY)
         if "Data de Publicação" in df_final.columns:
@@ -143,16 +176,27 @@ def run_etl() -> bool:
         # =====================================================================
         logger.info("\n📤 ETAPA 3: CARGA NO GOOGLE SHEETS")
         logger.info(f"📑 Sheet ID: {config.google_sheet_id}")
-        logger.info(f"📑 Aba: {config.sheet_tab_name}")
+        logger.info(f"📑 Aba Posts: {config.sheet_tab_name}")
+        logger.info(f"📑 Aba Perfis: Perfis")
         logger.info(f"📝 Modo: {config.write_mode}")
         
-        sheets_success = load_to_sheets(df_final, config)
+        # Carga 1: Posts (Aba padrão)
+        success_posts = True
+        if not df_final.empty:
+            logger.info(f"Uploading Posts ({len(df_final)} linhas)...")
+            success_posts = load_to_sheets(df_final, config, tab_name=config.sheet_tab_name)
         
-        if not sheets_success:
-            logger.error("❌ Falha ao atualizar Google Sheets!")
-            return False
+        # Carga 2: Perfis (Nova aba)
+        success_profiles = True
+        if not df_final_profiles.empty:
+            logger.info(f"Uploading Perfis ({len(df_final_profiles)} linhas)...")
+            success_profiles = load_to_sheets(df_final_profiles, config, tab_name="Perfis")
         
-        logger.info("✅ Google Sheets atualizado com sucesso!")
+        if not success_posts or not success_profiles:
+            logger.error("❌ Falha parcial na atualização do Google Sheets!")
+        
+        if success_posts and success_profiles:
+            logger.info("✅ Google Sheets (Todas as abas) atualizado com sucesso!")
         
         # =====================================================================
         # RESUMO FINAL
@@ -162,7 +206,9 @@ def run_etl() -> bool:
         logger.info("\n" + "=" * 60)
         logger.info("🏁 ETL CONCLUÍDO COM SUCESSO!")
         logger.info(f"⏱️ Duração: {duration:.2f} segundos")
+        logger.info(f"⏱️ Duração: {duration:.2f} segundos")
         logger.info(f"📊 Posts processados: {total_posts}")
+        logger.info(f"👥 Perfis processados: {len(df_final_profiles)}")
         logger.info(f"📄 Sheets: https://docs.google.com/spreadsheets/d/{config.google_sheet_id}")
         logger.info("=" * 60)
         
