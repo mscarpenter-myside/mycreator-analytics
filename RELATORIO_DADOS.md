@@ -1,81 +1,88 @@
 # 📊 Relatório Técnico de Dados: MyCreator Analytics ETL
 
-**Data:** 12/02/2026  
-**Responsável:** Equipe de Engenharia de Dados  
-**Versão:** 2.0 (Dual-Tab Architecture)
+**Data:** 13/02/2026  
+**Responsável:** Equipe de Engenharia de Conteúdo
+**Versão:** 3.3 (Unified Architecture)
 
 ---
 
 ## 1. Visão Geral da Arquitetura
 
-O pipeline de dados (ETL) foi rearquitetado para fornecer uma visão **dupla** da performance nas redes sociais, separando dados granulares (Posts) de dados consolidados de conta (Perfis).
+O pipeline de dados (ETL) foi evoluído para fornecer uma visão **nônupla** da performance nas redes sociais, cobrindo Feed (Geral), Perfis, Stories, Hashtags, Reels, Imagens, Carrosseis, Destaques e Base Unificada.
 
-O objetivo é permitir análises cruzadas como **"Alcance por Tamanho de Base de Seguidores"** e monitoramento da saúde das contas ao longo do tempo.
+O objetivo é permitir análises completas 360º:
+*   **Feed:** Performance de longo prazo e cauda longa.
+*   **Perfis:** Saúde da marca e crescimento de base.
+*   **Stories:** Engajamento efêmero e frequência de publicação.
+*   **Hashtags:** Alcance viral e descoberta de novos públicos.
 
-### Fluxo de Dados
-1.  **Extração**: O script conecta-se à API do MyCreator simulando sessões de usuário autenticado.
-2.  **Transformação**: Os dados brutos JSON são limpos, tipados e enriquecidos com cálculos de engajamento.
-3.  **Carga (Load)**: Os dados são exportados para o Google Sheets em duas abas sincronizadas: **"Dados_Brutos"** (Posts) e **"Perfis"**.
+### Fluxo de Dados Expandido
+1.  **Extração**: Conexão multi-endpoint (Feed, Stories, Contas).
+2.  **Transformação**:
+    *   Enriquecimento de Posts com dados de Perfis.
+    *   Mineração de texto (Regex) para extrair Hashtags.
+    *   Filtragem especializada para separar Stories de Reels.
+3.  **Carga (Load)**: Exportação síncrona para 4 abas no Google Sheets:
+    *   `Dados_Brutos` (Posts Geral)
+    *   `Perfis` (Snapshot da Conta)
+    *   `Stories_Detalhado` (Stories 24h)
+    *   `Reels_Detalhado` (Vídeos Curtos)
+    *   `Imagens_Detalhado` (Fotos Feed)
+    *   `Carrossel_Detalhado` (Álbuns)
+    *   `Destaques_Performance` (Top Ranking)
+    *   `Hashtags_Analitico` (Temas Virais)
 
 ---
 
-## 2. Estrutura de Métricas e Fonte de Dados
+## 2. Estrutura de Métricas
 
-### 📑 Aba 1: Perfis (Visão Agregada)
-**Objetivo**: Monitoramento macro da saúde da conta e crescimento de base.  
-**Janela de Dados**: Snapshot do momento da extração (Métricas de totais consideram últimos 30 dias).
+Para o detalhamento completo de cada coluna, consulte o documento **[DICIONARIO_DADOS.md](DICIONARIO_DADOS.md)**.
 
-| Campo (Coluna) | Descrição Técnica | Fonte Original (Endpoint) | Regra de Cálculo/Negócio |
+### Resumo das Fontes de Dados
+
+| Aba Google Sheets | Fonte Principal (API Endpoint) | Tipo de Dado | Frequência |
 | :--- | :--- | :--- | :--- |
-| **Cidade** | Nome do Workspace | `Config` | Definido manualmente no ETL (ex: Florianópolis) |
-| **Perfil** | Nome da Conta Instagram | `fetchSocialAccounts` | Campo `name` da conta vinculada |
-| **Seguidores** | Total de Seguidores | `getSummary` | **Snapshot** do total de seguidores no momento da execução |
-| **Total Posts** | Posts totais na conta | `getSummary` | Contagem total retornada pela API |
-| **Engajamento Médio (%)** | Taxa de Engajamento Global | `getSummary` | Retornado pela API (Média dos últimos 30 dias) |
-| **Total Engajamento (30d)** | Soma de interações | `getSummary` | Soma (Likes + Comentários + Salvos) nos últimos 30 dias |
-| **Alcance Total (30d)** | Alcance acumulado | `getSummary` | Contas únicas alcançadas nos últimos 30 dias |
-| **Impressões Totais (30d)** | Impressões acumuladas | `getSummary` | Total de exibições nos últimos 30 dias |
-| **Atualizado em** | Data de Extração | `System` | Timestamp (UTC-3) da execução do robô |
-
-**Endpoint Principal**:  
-`POST /backend/analytics/overview/getSummary`  
-*Payload customizado para extrair dados conta a conta, e não o agregado do workspace.*
+| **Perfis** | `/backend/analytics/overview/getSummary` | Agregado (Conta) | Diária (Snapshot) |
+| **Dados_Brutos** | `/backend/plan/preview` + `/post/{id}` | Transacional (Post) | Histórica Completa |
+| **Stories_Detalhado** | `/backend/fetchPlans` (type=['story']) | Efêmero (Story) | Histórica (Metadados) |
+| **Reels_Detalhado** | Filtro `media_type` IN ['REEL', 'VIDEO'] | Vídeo (Reel) | Histórica Completa |
+| **Imagens_Detalhado** | Filtro `media_type`='IMAGE' | Imagem (Feed) | Histórica Completa |
+| **Carrossel_Detalhado** | Filtro `media_type`='CAROUSEL' | Carrossel (Feed) | Histórica Completa |
+| **Destaques_Performance** | Agrupamento por Cidade/Plataforma | **Monitoramento (KPIs)** | Recalculado a cada execução |
+| **Hashtags_Analitico** | Regex sobre `Dados_Brutos` | Agregado (Tag) | Recalculado a cada execução |
+| **Base_Looker_Unificada** | União Padronizada (Feed + Reels) | Tabela Mestra | **Fonte Principal Looker Studio** |
 
 ---
 
-### 📑 Aba 2: Posts (Dados_Brutos)
-**Objetivo**: Análise granular de performance de conteúdo.  
-**Janela de Dados**: Histórico completo disponível no setup do workspace.
+## 3. Lógica de Cruzamento e Processamento
 
-| Campo (Coluna) | Descrição Técnica | Fonte Original (Endpoint) |
-| :--- | :--- | :--- |
-| **Cidade** | Workspace | `Config` |
-| **Data de Publicação** | Data de veiculação | `/backend/plan/preview` |
-| **Rede Social** | Plataforma (Instagram) | `/backend/plan/preview` |
-| **Perfil** | Nome da Conta | `/backend/plan/preview` |
-| **Seguidores** | **Snapshot por Post** | Cruzamento com `Data Perfis` |
-| **Tipo** | Formato de Publicação | `/backend/plan/preview` |
-| **Tipo de Mídia** | Formato de Mídia (Reels/Video) | `/backend/analytics/post/{id}` |
-| **Título/Legenda** | Conteúdo textual | `/backend/plan/preview` |
-| **Likes/Comentários/Salvos** | Métricas de Interação | `/backend/analytics/post/{id}` |
-| **Alcance/Impressões** | Métricas de Visibilidade | `/backend/analytics/post/{id}` |
-| **Plays** | Visualizações de Vídeo | `/backend/analytics/post/{id}` |
+A inteligência do ETL reside na capacidade de cruzar informações que a API entrega separadas.
 
-**Lógica de Cruzamento (Feature Nova)**:  
-Para cada post extraído, o ETL consulta o mapa de seguidores gerado na extração de Perfis e injeta o número de seguidores daquele perfil na linha do post. Isso permite calcular o **"Alcance Relativo"** (Alcance / Seguidores) diretamente no post, sem PROCV.
+### O Cruzamento de Hashtags (Feature Nova)
+Diferente das outras métricas que vêm prontas, as hashtags são **mineradas**.
+1.  O robô lê a legenda de *cada post*.
+2.  Identifica padrões `#exemplo`.
+3.  Cria uma tabela derivada onde **uma hashtag** soma a performance de **vários posts**.
+    *   *Exemplo:* Se a hashtag `#floripa` foi usada em 10 posts que somaram 1000 likes, a linha `#floripa` na aba Hashtags terá 1000 de "Engajamento Total".
 
----
+### O Tratamento de Stories (Feature Nova)
+A API mistura Reels e Stories. O ETL aplica um filtro rigoroso (`published_post_type == 'STORY'`) para garantir que a aba `Stories_Detalhado` contenha apenas conteúdo nativo de 24h.
 
-## 3. Estrutura Lógica do Cruzamento
+### O Tratamento de Reels (Feature Nova)
+Para isolar a performance de vídeos curtos, o ETL cria a aba `Reels_Detalhado`, filtrando posts onde o tipo de mídia é `REEL` ou `VIDEO`. Isso permite analisar métricas específicas como **Tempo Assistido** e **Duração Média**, que não fazem sentido para imagens estáticas.
 
-Para garantir a consistência dos dados, o ETL segue estritamente a ordem:
+### Análise de Formatos (Feature Nova - Fase 3)
+Além de Reels, agora separamos **Imagens** e **Carrosseis** em abas próprias. Isso facilita a comparação direta de ROI entre formatos.
+*   *Exemplo:* Um gestor pode abrir a aba `Carrossel_Detalhado` e ver rapidamente se os álbuns estão gerando mais salvamentos que os Reels.
 
-1.  **Etapa de Perfis (Master Data)**:
-    *   Itera sobre todos os Workspaces.
-    *   Busca todas as contas sociais (`fetchSocialAccounts`).
-    *   Extrai métricas de saúde e **Seguidores** para cada conta.
-    *   Armazena em memória um Dicionário: `{ "account_id": 12345_seguidores }`.
+### Dashboard de Monitoramento (Feature Nova - Fase 3)
+A aba `Destaques_Performance` foi evoluída para um **Painel de Monitoramento**. Em vez de listar posts individuais, ela agora apresenta os **Totais Consolidados** por cidade:
+*   Total de Posts
+*   Alcance Acumulado
+*   Impressões Acumuladas
+*   Engajamento Médio Global
 
+<<<<<<< HEAD
 2.  **Etapa de Posts (Transaction Data)**:
     *   Itera sobre todos os Posts publicados.
     *   Identifica o `account_id` do autor do post.
@@ -85,6 +92,9 @@ Para garantir a consistência dos dados, o ETL segue estritamente a ordem:
 3.  **Saída (Output)**:
     *   Gera dois DataFrames pandas independentes.
     *   Realiza o upload em paralelo para as abas respectivas no Google Sheets.
+=======
+Isso permite que a diretoria acompanhe o crescimento macro de cada praça em uma única linha.
+>>>>>>> 6611a9d (feat(etl): aprimora lógica de extração e distinção de tipos de mídia)
 
 ---
 

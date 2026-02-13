@@ -26,13 +26,16 @@ logger = logging.getLogger("mycreator_etl")
 # WORKSPACES ALVO (FIXOS - Não usar descoberta automática)
 # =============================================================================
 TARGET_WORKSPACES = [
-    {"id": "696e75c20f3354d37f074866", "name": "Florianópolis"},
-    {"id": "696689afcddd41ec6a024adb", "name": "Florianópolis Continente"},
-    {"id": "696689f3c04f3fefdc0118cd", "name": "Goiânia"},
+    {"id": "68fb69151a0869701c0c195c", "name": "MySide"},
+    {"id": "68fbf4b9a1a69edd600f0ee7", "name": "Lucrando com Imóveis"},
     {"id": "68fbfe91e94c0946d103643d", "name": "MyCreator"},
-    {"id": "69668a27c14df8f16407dfa9", "name": "Balneário Piçarras"},
     {"id": "696688d158d9e25f340ad964", "name": "Belo Horizonte"},
+    {"id": "696689afcddd41ec6a024adb", "name": "Florianópolis Continente"},
     {"id": "696689cc90763878ba06a27b", "name": "Curitiba"},
+    {"id": "696689f3c04f3fefdc0118cd", "name": "Goiânia"},
+    {"id": "69668a27c14df8f16407dfa9", "name": "Balneário Piçarras"},
+    {"id": "696e75c20f3354d37f074866", "name": "Florianópolis"},
+    {"id": "696e7742bcec9fe648008357", "name": "Balneário e Itapema"},
 ]
 
 
@@ -72,10 +75,20 @@ class PostData:
     plays: int = 0
     engagement_rate: float = 0.0
     
+    # Métricas Avançadas (Reels/Video)
+    video_duration: float = 0.0
+    total_watch_time: int = 0
+    start_event: int = 0
+    
+    # Métricas de Stories
+    taps_forward: int = 0
+    taps_back: int = 0
+    exits: int = 0
+    replies: int = 0
+    
     # Status
     analytics_error: Optional[str] = None
     
-    # Rastreabilidade
     # Rastreabilidade
     extraction_timestamp: Optional[str] = None  # Formato: DD/MM/YYYY HH:MM:SS
 
@@ -95,6 +108,30 @@ class ProfileData:
     reach_total: float
     impressions_total: float
     extraction_timestamp: str
+
+
+@dataclass
+class StoryData:
+    """Dados de um Story (Instagram)."""
+    internal_id: str
+    external_id: str
+    workspace_id: str
+    workspace_name: str
+    profile_name: str
+    account_id: str
+    published_at: str
+    media_url: str
+    permalink: str
+    
+    # Métricas (Se disponível)
+    reach: int = 0
+    impressions: int = 0
+    taps_forward: int = 0
+    taps_back: int = 0
+    exits: int = 0
+    replies: int = 0
+    
+    extraction_timestamp: Optional[str] = None
 
 
 class MyCreatorExtractor:
@@ -348,7 +385,18 @@ class MyCreatorExtractor:
             "reach": self._safe_int(data, ["reach", "reachCount", "reach_count"]),
             "impressions": self._safe_int(data, ["impressions", "impressionCount", "impression_count"]),
             "plays": self._safe_int(data, ["plays", "videoViews", "views", "video_views"]),
-            "media_type": data.get("media_type", ""),  # Reels, Carousel, Video, Image, etc.
+            "media_type": data.get("media_type", ""),
+            
+            # Métricas Avançadas (Video/Reels)
+            "video_duration": data.get("video_duration", 0.0),
+            "total_watch_time": self._safe_int(data, ["total_time_watched", "total_watch_time"]),
+            "avg_watch_time": data.get("avg_watch_time", 0.0) or data.get("average_watch_time", 0.0),
+            
+            # Métricas de Stories
+            "taps_forward": self._safe_int(data, ["taps_forward", "navigation", "forward"]), # Exemplo, ajustar conforme API real
+            "taps_back": self._safe_int(data, ["taps_back", "back"]),
+            "exits": self._safe_int(data, ["exits"]),
+            "replies": self._safe_int(data, ["replies", "replies_count"]),
         }
     
     def _safe_int(self, data: dict, keys: List[str]) -> int:
@@ -361,6 +409,9 @@ class MyCreatorExtractor:
                 except (ValueError, TypeError):
                     continue
         return 0
+
+    # ... (rest of methods) ...
+
 
     # =========================================================================
     # FOLLOWER COUNT: via /backend/analytics/overview/getSummary
@@ -592,6 +643,16 @@ class MyCreatorExtractor:
                         post_data.plays = metrics["plays"]
                         post_data.media_type = metrics.get("media_type", "")
                         
+                        # Atribui métricas avançadas
+                        post_data.video_duration = float(metrics.get("video_duration", 0.0))
+                        post_data.total_watch_time = metrics.get("total_watch_time", 0)
+                        post_data.avg_watch_time = float(metrics.get("avg_watch_time", 0.0))
+                        
+                        post_data.taps_forward = metrics.get("taps_forward", 0)
+                        post_data.taps_back = metrics.get("taps_back", 0)
+                        post_data.exits = metrics.get("exits", 0)
+                        post_data.replies = metrics.get("replies", 0)
+                        
                         # Calcula taxa de engajamento
                         if post_data.reach > 0:
                             engagement = post_data.likes + post_data.saves + post_data.comments
@@ -609,6 +670,122 @@ class MyCreatorExtractor:
             
         return results
     
+    # =========================================================================
+    # EXTRAÇÃO DE STORIES (NOVA ABA)
+    # =========================================================================
+    def fetch_stories_list(self, workspaces: List[dict] = None) -> List[StoryData]:
+        """
+        Extrai stories de múltiplos workspaces.
+        Usa filtro type=['story'] e busca analytics (se disponível).
+        """
+        if workspaces is None:
+            workspaces = TARGET_WORKSPACES
+            
+        all_stories: List[StoryData] = []
+        from datetime import datetime, timedelta, timezone as tz
+        tz_brasilia = tz(timedelta(hours=-3))
+        extraction_ts = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+        
+        logger.info(f"\n{'='*60}")
+        logger.info(f"📸 INICIANDO EXTRAÇÃO DE STORIES")
+        logger.info(f"{'='*60}")
+        
+        for ws in workspaces:
+            ws_id = ws["id"]
+            ws_name = ws["name"]
+            
+            # Reutiliza o endpoint de listagem, mas forçando type=['story']
+            url = f"{self.config.base_url}{self.config.fetch_plans_endpoint}"
+            payload = {
+                "workspace_id": ws_id,
+                "limit": self.config.posts_limit, # Usa mesmo limite
+                "page": 1,
+                "statuses": ["published"],
+                "sort_column": "post_created_at",
+                "order": "descending",
+                "route_name": "list_plans",
+                "source": "web",
+                "type": ["story"], # FILTRO CHAVE
+                "content_categories": [],
+                "platformSelection": [],
+                "date_range": ""
+            }
+            
+            try:
+                # 1. Lista Stories
+                resp = self._handle_401_and_retry("post", url, json=payload, timeout=30)
+                if resp.status_code != 200:
+                    continue
+                    
+                plans = resp.json().get("plans", [])
+                logger.info(f"   📸 {ws_name}: {len(plans)} items (Stories/Reels compartilhados)")
+                
+                for plan in plans:
+                    internal_id = plan.get("_id")
+                    
+                    # 2. Detalhes
+                    details = self.fetch_plan_details(internal_id, ws_id)
+                    if not details: continue
+                    
+                    # Extrai dados básicos
+                    postings = details.get("posting", [])
+                    exec_time = details.get("execution_time", {})
+                    published_at = exec_time.get("date", details.get("updated_at", ""))
+                    
+                    for p in postings:
+                        # Verifica se é story mesmo
+                        published_post_type = p.get("published_post_type", "")
+                        stories_list = p.get("stories", [])
+                        
+                        target_ids = []
+                        if published_post_type == "STORY":
+                             target_ids.append(p.get("posted_id"))
+                        
+                        # Se foi compartilhado para story (Reel -> Story), pega o ID do story
+                        if stories_list:
+                            for s in stories_list:
+                                if s.get("id"): target_ids.append(s.get("id"))
+                                
+                        if not target_ids:
+                            continue
+                            
+                        # Para cada story ID identificado
+                        for tid in target_ids:
+                            if not tid: continue
+                            
+                            media_url = ""
+                            permalink = ""
+                            
+                            # Tenta achar link/media
+                            if stories_list:
+                                for s in stories_list:
+                                    if s.get("id") == tid:
+                                        media_url = s.get("preview", "")
+                                        permalink = s.get("link", "")
+                                        break
+                            
+                            if not permalink: permalink = p.get("link", "")
+                            
+                            story_obj = StoryData(
+                                internal_id=internal_id,
+                                external_id=tid,
+                                workspace_id=ws_id,
+                                workspace_name=ws_name,
+                                profile_name=p.get("platform", "Unknown"),
+                                account_id=p.get("platform_id", ""),
+                                published_at=published_at,
+                                media_url=media_url,
+                                permalink=permalink,
+                                extraction_timestamp=extraction_ts
+                            )
+                            # Analytics (futuro)
+                            all_stories.append(story_obj)
+                            
+            except Exception as e:
+                logger.error(f"Erro stories em {ws_name}: {e}")
+                
+        return all_stories
+
     # =========================================================================
     # EXTRAÇÃO DE PERFIS (NOVA ABA)
     # =========================================================================

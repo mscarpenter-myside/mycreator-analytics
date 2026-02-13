@@ -16,22 +16,22 @@ graph TD
     classDef storage fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
     classDef join fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:#4a148c;
 
-    subgraph Sources [📡 Fontes (API)]
-        A1[Endpoint: /getSummary]:::api
-        A2[Endpoint: /fetchPlans]:::api
-        A3[Endpoint: /postAnalytics]:::api
+    subgraph Sources ["📡 Fontes (API)"]
+        A1["Endpoint: /getSummary"]:::api
+        A2["Endpoint: /fetchPlans"]:::api
+        A3["Endpoint: /postAnalytics"]:::api
     end
 
-    subgraph Processing [⚙️ Processamento (Python)]
-        B1(1. Extração de Perfis):::etl
-        B2(2. Extração de Posts):::etl
-        B3{{⚡ ENRIQUECIMENTO}}:::join
-        B4[Dict: AccountID -> Seguidores]:::etl
+    subgraph Processing ["⚙️ Processamento (Python)"]
+        B1("1. Extração de Perfis"):::etl
+        B2("2. Extração de Posts"):::etl
+        B3{{"⚡ ENRIQUECIMENTO"}}:::join
+        B4["Dict: AccountID -> Seguidores"]:::etl
     end
 
-    subgraph Destination [📊 Google Sheets]
-        C1[(Aba: Perfis)]:::storage
-        C2[(Aba: Dados_Brutos)]:::storage
+    subgraph Destination ["📊 Google Sheets"]
+        C1[("Aba: Perfis")]:::storage
+        C2[("Aba: Dados_Brutos")]:::storage
     end
 
     %% Fluxo Perfis (Master Data)
@@ -43,10 +43,13 @@ graph TD
     A2 -->|JSON: Lista de Posts| B2
     A3 -->|JSON: Likes, Reach, Type| B2
     
-    %% O Pulo do Gato (Join)
-    B4 -.->|Lookup O(1)| B3
     B2 --> B3
     B3 -->|DataFrame Final| C2
+    B3 -.->|Regex Extraction| B5("3. Extração de Hashtags"):::etl
+    B5 -->|DataFrame Agregado| C3[("Aba: Hashtags_Analitico")]:::storage
+    
+    A2 -->|JSON: Stories (Type=Story)| B6("4. Extração de Stories"):::etl
+    B6 -->|DataFrame Stories| C4[("Aba: Stories_Detalhado")]:::storage
 
     linkStyle 4 stroke:#7b1fa2,stroke-width:3px;
 ```
@@ -71,18 +74,27 @@ sequenceDiagram
         ETL->>ETL: Armazena em Memória (Dict)
     end
 
-    Note over ETL, API: 🟢 FASE 2: Extração de Posts (Transaction Data)
+    Note over ETL, API: 🟢 FASE 2: Extração de Posts & Hashtags (Transaction Data)
     ETL->>API: POST /backend/plan/preview (Lista Posts)
     loop Para cada Post
         ETL->>ETL: Lookup Followers (usa Dict da Fase 1)
+        ETL->>ETL: Regex Extract Hashtags (from Caption)
         ETL->>API: GET /backend/analytics/post/{id}
         API-->>ETL: JSON { likes, reach, media_type, ... }
     end
 
-    Note over ETL, Sheet: 🟢 FASE 3: Carga (Load)
+    Note over ETL, API: 🟢 FASE 3: Extração de Stories (New!)
+    ETL->>API: POST /backend/fetchPlans (type=['story'])
+    loop Para cada Story
+        ETL->>API: POST /backend/plan/preview
+        API-->>ETL: JSON { metadata, metrics (if available) }
+    end
+
+    Note over ETL, Sheet: 🟢 FASE 4: Carga (Load)
     ETL->>Sheet: load_to_sheets(df_perfis, tab="Perfis")
-    Sheet-->>ETL: Success (200 OK)
     ETL->>Sheet: load_to_sheets(df_posts, tab="Dados_Brutos")
+    ETL->>Sheet: load_to_sheets(df_hashtags, tab="Hashtags_Analitico")
+    ETL->>Sheet: load_to_sheets(df_stories, tab="Stories_Detalhado")
     Sheet-->>ETL: Success (200 OK)
 ```
 
@@ -95,6 +107,8 @@ Embora o Google Sheets não seja um banco de dados relacional, estruturamos as a
 ```mermaid
 erDiagram
     PERFIS ||--o{ POSTS : "publica"
+    PERFIS ||--o{ STORIES : "publica"
+    POSTS ||--o{ HASHTAGS : "contem"
     
     PERFIS {
         string Cidade
@@ -115,14 +129,31 @@ erDiagram
         int Impressoes
         int Likes
     }
+
+    STORIES {
+        string ID_Story PK
+        string Perfil FK
+        date Data_Publicacao
+        string Link
+        string Preview_URL
+        int Alcance "N/A (API limitation)"
+        int Impressoes "N/A (API limitation)"
+    }
+
+    HASHTAGS {
+        string Hashtag PK
+        int Qtd_Usos
+        int Alcance_Acumulado
+        int Engajamento_Total
+    }
 ```
 
 ### Explicação do Modelo
 *   **Aba Perfis (Dimensão)**: Contém atributos únicos da conta. Se o nome do perfil mudar, reflete aqui.
 *   **Aba Posts (Fato)**: Contém eventos históricos.
-*   **Redundância Intencional**: A coluna `Seguidores` existe em **ambas** as tabelas.
-    *   Em **Perfis**: Representa o *estado atual* da conta.
-    *   Em **Posts**: Representa o *estado no momento da extração*, permitindo calcular a eficiência do post isoladamente.
+*   **Aba Stories (Fato)**: Novo! Contém eventos efêmeros (Stories) rastreados.
+    *   *Nota*: Métricas de engajamento (taps, saídas) dependem da API liberar acesso histórico.
+*   **Aba Hashtags (Agregada)**: Tabela contendo a performance consolidada por hashtag.
 
 ---
 

@@ -246,9 +246,13 @@ class GoogleSheetsLoader:
         """Aplica formatação no header da planilha."""
         try:
             # Formata primeira linha (header)
+            # Formata primeira linha (header)
             self.worksheet.format("1:1", {
-                "textFormat": {"bold": True},
-                "backgroundColor": {"red": 0.2, "green": 0.4, "blue": 0.8},
+                "textFormat": {
+                    "bold": True,
+                    "foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0}
+                },
+                "backgroundColor": {"red": 0.263, "green": 0.263, "blue": 0.263}, # #434343
                 "horizontalAlignment": "CENTER",
             })
             
