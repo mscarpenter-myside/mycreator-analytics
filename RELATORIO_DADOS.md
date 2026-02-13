@@ -88,17 +88,5 @@ Para garantir a consistência dos dados, o ETL segue estritamente a ordem:
 
 ---
 
-## 4. Como Utilizar este Relatório (Marketing)
-
-Com essas duas tabelas, o time de Marketing pode responder perguntas complexas:
-
-*   **Eficiência de Alcance**: *"O perfil A tem 50k seguidores e o perfil B tem 5k. Qual deles tem melhor taxa de alcance (Reach/Followers) nos Reels?"*
-    *   *Como*: Criar coluna calculada `Alcance / Seguidores` na aba de Posts.
-*   **Saúde da Base**: *"Qual cidade está ganhando mais seguidores este mês?"*
-    *   *Como*: Acompanhar a evolução da coluna `Seguidores` na aba Perfis (requer snapshot histórico diário ou comparação D-1 manualmente).
-*   **Qualidade do Engajamento**: *"Perfis menores engajam mais?"*
-    *   *Como*: Plotar `Seguidores` vs `Engajamento Médio (%)` da aba Perfis.
-
----
-
 **Engenharia de Conteúdo & Automação**
+
