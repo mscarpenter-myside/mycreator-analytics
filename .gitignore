@@ -125,3 +125,6 @@ check_*.py
 
 # Arquivos JSON de debug
 debug_*.json
+
+# Scripts Temporários e de Probing
+scripts_temporarios/
