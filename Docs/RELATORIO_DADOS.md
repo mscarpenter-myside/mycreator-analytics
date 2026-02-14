@@ -29,7 +29,7 @@ O objetivo é permitir análises completas 360º:
     *   `Reels_Detalhado` (Vídeos Curtos)
     *   `Imagens_Detalhado` (Fotos Feed)
     *   `Carrossel_Detalhado` (Álbuns)
-    *   `Destaques_Performance` (Top Ranking)
+    *   `Redes_Monitoramento` (Monitoramento Agregado)
     *   `Hashtags_Analitico` (Temas Virais)
 
 ---
@@ -48,7 +48,7 @@ Para o detalhamento completo de cada coluna, consulte o documento **[DICIONARIO_
 | **Reels_Detalhado** | Filtro `media_type` IN ['REEL', 'VIDEO'] | Vídeo (Reel) | Histórica Completa |
 | **Imagens_Detalhado** | Filtro `media_type`='IMAGE' | Imagem (Feed) | Histórica Completa |
 | **Carrossel_Detalhado** | Filtro `media_type`='CAROUSEL' | Carrossel (Feed) | Histórica Completa |
-| **Destaques_Performance** | Agrupamento por Cidade/Plataforma | **Monitoramento (KPIs)** | Recalculado a cada execução |
+| **Redes_Monitoramento** | Agrupamento por Cidade/Plataforma | **Monitoramento (KPIs)** | Recalculado a cada execução |
 | **Hashtags_Analitico** | Regex sobre `Dados_Brutos` | Agregado (Tag) | Recalculado a cada execução |
 | **Base_Looker_Unificada** | União Padronizada (Feed + Reels) | Tabela Mestra | **Fonte Principal Looker Studio** |
 
@@ -76,13 +76,12 @@ Além de Reels, agora separamos **Imagens** e **Carrosseis** em abas próprias. 
 *   *Exemplo:* Um gestor pode abrir a aba `Carrossel_Detalhado` e ver rapidamente se os álbuns estão gerando mais salvamentos que os Reels.
 
 ### Dashboard de Monitoramento (Feature Nova - Fase 3)
-A aba `Destaques_Performance` foi evoluída para um **Painel de Monitoramento**. Em vez de listar posts individuais, ela agora apresenta os **Totais Consolidados** por cidade:
+A aba `Redes_Monitoramento` foi evoluída para um **Painel de Monitoramento**. Em vez de listar posts individuais, ela agora apresenta os **Totais Consolidados** por cidade:
 *   Total de Posts
 *   Alcance Acumulado
 *   Impressões Acumuladas
 *   Engajamento Médio Global
 
-<<<<<<< HEAD
 2.  **Etapa de Posts (Transaction Data)**:
     *   Itera sobre todos os Posts publicados.
     *   Identifica o `account_id` do autor do post.
@@ -92,9 +91,6 @@ A aba `Destaques_Performance` foi evoluída para um **Painel de Monitoramento**.
 3.  **Saída (Output)**:
     *   Gera dois DataFrames pandas independentes.
     *   Realiza o upload em paralelo para as abas respectivas no Google Sheets.
-=======
-Isso permite que a diretoria acompanhe o crescimento macro de cada praça em uma única linha.
->>>>>>> 6611a9d (feat(etl): aprimora lógica de extração e distinção de tipos de mídia)
 
 ---
 
