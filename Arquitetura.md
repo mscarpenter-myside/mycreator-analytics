@@ -164,9 +164,9 @@ erDiagram
     }
 
     REELS {
-        string ID Link
+        string Link
         string Titulo
-        int Duração
+        int Duracao "Duração"
         int Tempo_Assistido
         int Plays
         int Alcance
@@ -174,7 +174,7 @@ erDiagram
     }
 
     IMAGENS {
-        string ID Link
+        string Link
         string Legenda
         int Likes
         int Comentarios
@@ -182,7 +182,7 @@ erDiagram
     }
 
     CARROSSEL {
-        string ID Link
+        string Link
         string Legenda
         int Likes
         int Comentarios
