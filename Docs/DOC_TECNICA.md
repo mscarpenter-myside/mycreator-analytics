@@ -48,8 +48,24 @@ graph TD
     B3 -.->|Regex Extraction| B5("3. Extração de Hashtags"):::etl
     B5 -->|DataFrame Agregado| C3[("Aba: Hashtags_Analitico")]:::storage
     
-    A2 -->|JSON: Stories (Type=Story)| B6("4. Extração de Stories"):::etl
+    A2 -->|JSON: Stories Type=Story| B6("4. Extração de Stories"):::etl
     B6 -->|DataFrame Stories| C4[("Aba: Stories_Detalhado")]:::storage
+
+    %% Novos Fluxos (Fase 3)
+    B2 -->|Filtro: Video/Reel| B7("5. Filtro Reels"):::etl
+    B7 --> C5[("Aba: Reels_Detalhado")]:::storage
+
+    B2 -->|Filtro: Imagem Feed| B8("6. Filtro Imagens"):::etl
+    B8 --> C6[("Aba: Imagens_Detalhado")]:::storage
+
+    B2 -->|Filtro: Carrossel| B9("7. Filtro Carrossel"):::etl
+    B9 --> C7[("Aba: Carrossel_Detalhado")]:::storage
+
+    B2 -->|Agregação| B10("8. Monitoramento"):::etl
+    B10 --> C8[("Aba: Redes_Monitoramento")]:::storage
+
+    B2 -->|Padronização| B11("9. Base Unificada"):::etl
+    B11 --> C9[("Aba: Base_Looker_Unificada")]:::storage
 
     linkStyle 4 stroke:#7b1fa2,stroke-width:3px;
 ```
@@ -146,6 +162,48 @@ erDiagram
         int Alcance_Acumulado
         int Engajamento_Total
     }
+
+    REELS {
+        string Link
+        string Titulo
+        int Duracao "Duração"
+        int Tempo_Assistido
+        int Plays
+        int Alcance
+        int Likes
+    }
+
+    IMAGENS {
+        string Link
+        string Legenda
+        int Likes
+        int Comentarios
+        int Alcance
+    }
+
+    CARROSSEL {
+        string Link
+        string Legenda
+        int Likes
+        int Comentarios
+        int Alcance
+    }
+
+    MONITORAMENTO {
+        string Cidade_Plataforma PK
+        int Contagem_Posts
+        float Engajamento_Medio
+        int Alcance_Total
+    }
+
+    BASE_UNIFICADA {
+        string ID_Post PK
+        string Tipo_Midia "Reels, Video, Imagem, Carrousel"
+        int Seguidores
+        int Alcance
+        int Impressoes
+        float Engajamento_Pct
+    }
 ```
 
 ### Explicação do Modelo
@@ -154,6 +212,51 @@ erDiagram
 *   **Aba Stories (Fato)**: Novo! Contém eventos efêmeros (Stories) rastreados.
     *   *Nota*: Métricas de engajamento (taps, saídas) dependem da API liberar acesso histórico.
 *   **Aba Hashtags (Agregada)**: Tabela contendo a performance consolidada por hashtag.
+*   **Abas Detalhadas (Reels, Imagens, Carrossel)**: Segmentações específicas por formato de mídia para análises focadas.
+*   **Aba Redes_Monitoramento**: Visão executiva agregada por cidade e plataforma.
+*   **Aba Base_Looker_Unificada**: Tabela mestra padronizada (normalizada) pronta para consumo direto pelo Looker Studio, contendo todos os tipos de mídia com colunas compatíveis.
+
+### Detalhamento das Colunas (Atualizado)
+
+#### Aba: Perfis
+| Coluna | Descrição |
+| :--- | :--- |
+| **Cidade** | Nome do workspace (Ex: Florianópolis) |
+| **Perfil** | Nome da conta (Ex: myside.florianopolis) |
+| **Seguidores (Total)** | Total de seguidores da conta |
+| **Posts MyCreator** | Quantidade de posts processados/extraídos |
+| **Engajamento Médio MyCreator (%)** | (Interações / Alcance) * 100 |
+| **Alcance Acumulado MyCreator** | Soma do alcance dos posts extraídos |
+| **Interações Totais MyCreator** | Soma de Likes + Comentários + Salvos + Shares |
+| **Atualizado em** | Data da extração |
+
+#### Aba: Base_Looker_Unificada (Fonte Mestra)
+Esta é a principal tabela para dashboards. Normaliza diferentes tipos de métricas.
+
+| Coluna | Descrição |
+| :--- | :--- |
+| **ID Post** | Identificador único |
+| **Data** | Data de publicação (DD/MM/YYYY) |
+| **Cidade** | Workspace |
+| **Perfil** | Conta emissora |
+| **Rede Social** | Instagram, Facebook, etc |
+| **Seguidores** | No momento da publicação |
+| **Tipo de Mídia** | Padronizado: `Reels`, `Imagem`, `Carrousel` |
+| **Link** | URL do post |
+| **Legenda/Título** | Texto descritivo |
+| **Alcance** | Pessoas alcançadas |
+| **Impressões** | Total de visualizações |
+| **Engajamento (%)** | Taxa de engajamento |
+| **Likes/Comentários/Salvos/Shares** | Métricas de interação |
+
+#### Abas Específicas (Imagens, Carrossel, Reels)
+Contêm métricas exclusivas de cada formato (ex: `Duração` e `Plays` para Reels). Estão separadas para facilitar auditoria.
+
+#### Aba: Redes_Monitoramento
+Resumo executivo atualizado a cada execução.
+- **Contagem de Posts**: Volume publicado.
+- **Engajamento Médio (%)**: Performance média da marca na cidade.
+- **Alcance/Impressões Totais**: Visibilidade total da marca na cidade.
 
 ---
 
