@@ -18,7 +18,7 @@ graph TD
         ETL -->|Filtro Type='reel'| R1[Reels]
         ETL -->|Filtro Type='image'| I1[Imagens]
         ETL -->|Filtro Type='carousel'| C1[Carrossel]
-        ETL -->|Ranking| D1[Destaques]
+        ETL -->|Monitoramento| D1[Monitoramento]
         ETL -->|Snapshot| PR1[Perfis]
     end
     
@@ -29,7 +29,7 @@ graph TD
     R1 -->|Upload| GS5[📄 Aba: Reels_Detalhado]
     I1 -->|Upload| GS6[📄 Aba: Imagens_Detalhado]
     C1 -->|Upload| GS7[📄 Aba: Carrossel_Detalhado]
-    D1 -->|Upload| GS8[📄 Aba: Destaques_Performance]
+    D1 -->|Upload| GS8[📄 Aba: Redes_Monitoramento]
 ```
 
 ---
@@ -107,13 +107,11 @@ graph TD
 | :--- | :--- | :--- |
 | **Cidade** | Workspace. | `Florianópolis` |
 | **Perfil** | Nome da Conta. | `Lilian Jácomo` |
-| **Plataforma** | Instagram, Facebook, etc. | `Instagram` |
-| **Seguidores** | Total atual de seguidores. | `1250` |
-| **Total Posts** | Contagem total de posts da conta. | `450` |
-| **Engajamento Médio (%)** | Média dos últimos 30 dias. | `5.2` |
-| **Total Engajamento (30d)** | Total absoluto (30 dias). | `1200` |
-| **Alcance Total (30d)** | Alcance da conta (30 dias). | `15000` |
-| **Impressões Totais (30d)** | Impressões da conta (30 dias). | `25000` |
+| **Seguidores (Total)** | Total atual de seguidores. | `1250` |
+| **Posts MyCreator** | Posts processados pela ferramenta. | `45` |
+| **Engajamento Médio MyCreator (%)** | `(Interações / Alcance) * 100`. | `5.2` |
+| **Alcance Acumulado MyCreator** | Soma do alcance (Posts ferramenta). | `15000` |
+| **Interações Totais MyCreator** | Soma de interações (Posts ferramenta). | `1200` |
 | **Atualizado em** | Data da extração. | `13/02/2026 02:00:00` |
 
 ---
@@ -162,7 +160,7 @@ graph TD
 
 ---
 
-## 📑 8. Aba: `Monitoramento_Redes` (Monitoramento Agregado)
+## 📑 8. Aba: `Redes_Monitoramento` (Monitoramento Agregado)
 **Granularidade:** Uma linha por Cidade e Plataforma.
 **Antigo:** *Destaques_Performance*
 *Dashboard executivo de performance geral.*
