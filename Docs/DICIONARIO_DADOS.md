@@ -221,3 +221,52 @@ graph TD
 | **Interações Totais (365d)** | Engajamento total no ano. | `3500` |
 | **Período Analisado** | Intervalo de datas (últimos 365 dias). | `2025-02-18 - 2026-02-18` |
 
+---
+
+## 📅 11. Aba: `Historico_Diario_MyCreator` (Publishing Behavior)
+**Granularidade:** Uma linha por Dia por Perfil.
+*Dados agregados para gráficos de comportamento de publicação e desempenho ao longo do tempo.*
+
+| Coluna | Descrição | Exemplo |
+| :--- | :--- | :--- |
+| **Data** | Data da publicação. | `2025-02-15` |
+| **Cidade** | Workspace. | `Florianópolis` |
+| **Perfil** | Nome do perfil. | `myside.imoveis` |
+| **Rede** | Rede Social (Instagram/Facebook). | `Instagram` |
+| **Posts Publicados** | Quantidade de posts no dia. | `3` |
+| **Alcance (Soma)** | Soma do alcance de todos os posts do dia. | `15000` |
+| **Impressões (Soma)** | Soma das impressões. | `18000` |
+| **Engajamento (Soma)** | Soma de todas interações. | `500` |
+| **Plays (Soma)** | Total de visualizações de vídeo/Reels. | `20000` |
+| **Tempo Assistido Total (Seg)** | Soma do tempo assistido (Reels). | `150000` |
+
+---
+
+## 🏆 12. Aba: `Top_Posts_MyCreator` (Rankings)
+**Granularidade:** Top 20 posts por categoria.
+*Lista dos melhores posts baseada em métricas específicas.*
+
+| Coluna | Descrição | Exemplo |
+| :--- | :--- | :--- |
+| **Rank_Tipo** | Categoria do Ranking (Alcance, Engajamento, Impressões). | `Alcance` |
+| **Valor_Metrica** | Valor da métrica correspondente. | `50000` |
+| **Perfil** | Perfil dono do post. | `myside.imoveis` |
+| **Data** | Data de publicação. | `2025-02-10` |
+| **Tipo** | Tipo de mídia (IMAGE, VIDEO, CAROUSEL, REELS). | `REELS` |
+| **Legenda/Titulo** | Título ou início da legenda do post. | `Confira este imóvel...` |
+| **Link** | Link para o post. | `https://instagram...` |
+
+---
+
+## 📸 13. Aba: `Snapshot_Seguidores` (Histórico BigQuery)
+**Granularidade:** Snapshot Diário (Append).
+*Histórico acumulado de seguidores para análise futura de "Seguidores na época do post".*
+
+| Coluna | Descrição | Exemplo |
+| :--- | :--- | :--- |
+| **Data_Snapshot** | Data da coleta do dado. | `2026-02-18` |
+| **Cidade** | Workspace. | `Goiânia` |
+| **Perfil** | Nome do perfil. | `myside.goiania` |
+| **Seguidores** | Contagem total de seguidores no dia. | `12500` |
+
+

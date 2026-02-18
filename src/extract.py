@@ -78,6 +78,7 @@ class PostData:
     # Métricas Avançadas (Reels/Video)
     video_duration: float = 0.0
     total_watch_time: int = 0
+    avg_watch_time: float = 0.0
     start_event: int = 0
     
     # Métricas de Stories

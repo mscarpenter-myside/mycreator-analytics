@@ -122,6 +122,8 @@ def run_etl() -> bool:
             "reach": "Alcance",
             "impressions": "Impressões",
             "plays": "Plays",
+            "total_watch_time": "Tempo Assistido (seg)",
+            "avg_watch_time": "Tempo Médio (seg)",
             
             # TÉCNICO (última: Timestamp de Atualização)
             "permalink": "Link",
@@ -628,6 +630,111 @@ def run_etl() -> bool:
         else:
             logger.warning("⚠️ Nenhum dado para monitoramento.")
 
+        # =========================================================================
+        # 10. HISTÓRICO DIÁRIO MYCREATOR (Publishing Behavior e Insights)
+        # =========================================================================
+        # Agrupa posts por Data e Perfil para criar histórico
+        # Métricas: Qtd Posts, Alcance, Impressões, Engajamento
+        if not df_posts.empty:
+            # Garante que as colunas numéricas estão certas
+            cols_to_sum = ['reach', 'impressions', 'likes', 'comments', 'shares', 'saves']
+            for col in cols_to_sum:
+                if col in df_posts.columns:
+                    df_posts[col] = pd.to_numeric(df_posts[col], errors='coerce').fillna(0)
+            
+            # Cria coluna de Engajamento Total (soma das interações) se não existir
+            if 'engagement_total' not in df_posts.columns:
+                df_posts['engagement_total'] = (
+                    df_posts['likes'] + 
+                    df_posts['comments'] + 
+                    df_posts['shares'] + 
+                    df_posts['saves']
+                )
+
+            # Agrupa
+            df_history = df_posts.groupby(['published_at', 'workspace_name', 'profile_name', 'platform']).agg({
+                'internal_id': 'count',
+                'reach': 'sum',
+                'impressions': 'sum',
+                'engagement_total': 'sum',
+                'plays': 'sum',
+                'total_watch_time': 'sum'
+            }).reset_index()
+
+            # Renomeia
+            df_history = df_history.rename(columns={
+                'published_at': 'Data',
+                'workspace_name': 'Cidade',
+                'profile_name': 'Perfil',
+                'platform': 'Rede',
+                'internal_id': 'Posts Publicados',
+                'reach': 'Alcance (Soma)',
+                'impressions': 'Impressões (Soma)',
+                'engagement_total': 'Engajamento (Soma)',
+                'plays': 'Plays (Soma)',
+                'total_watch_time': 'Tempo Assistido Total (Seg)'
+            })
+            
+            # Ordena por data decrescente
+            df_history = df_history.sort_values(by='Data', ascending=False)
+            logger.info(f"✅ {len(df_history)} linhas de Histórico Diário geradas.")
+        else:
+            df_history = pd.DataFrame()
+
+        # =========================================================================
+        # 11. TOP POSTS MYCREATOR (Rankings)
+        # =========================================================================
+        if not df_posts.empty:
+            # Vamos pegar o Top 20 de cada métrica
+            top_reach = df_posts.nlargest(20, 'reach')[['permalink', 'reach', 'title', 'profile_name', 'published_at', 'media_type']].copy()
+            top_reach['Rank_Tipo'] = 'Alcance'
+            top_reach = top_reach.rename(columns={'reach': 'Valor_Metrica'})
+
+            top_engage = df_posts.nlargest(20, 'engagement_total')[['permalink', 'engagement_total', 'title', 'profile_name', 'published_at', 'media_type']].copy()
+            top_engage['Rank_Tipo'] = 'Engajamento'
+            top_engage = top_engage.rename(columns={'engagement_total': 'Valor_Metrica'})
+
+            top_impressions = df_posts.nlargest(20, 'impressions')[['permalink', 'impressions', 'title', 'profile_name', 'published_at', 'media_type']].copy()
+            top_impressions['Rank_Tipo'] = 'Impressões'
+            top_impressions = top_impressions.rename(columns={'impressions': 'Valor_Metrica'})
+
+            # Concatena
+            df_top_posts = pd.concat([top_reach, top_engage, top_impressions])
+            
+            # Formata
+            df_top_posts['Valor_Metrica'] = df_top_posts['Valor_Metrica'].astype(int)
+            df_top_posts = df_top_posts[['Rank_Tipo', 'Valor_Metrica', 'profile_name', 'published_at', 'media_type', 'title', 'permalink']]
+            df_top_posts = df_top_posts.rename(columns={
+                'profile_name': 'Perfil',
+                'published_at': 'Data',
+                'media_type': 'Tipo',
+                'title': 'Legenda/Titulo',
+                'permalink': 'Link'
+            })
+            logger.info(f"✅ {len(df_top_posts)} Top Posts gerados.")
+        else:
+            df_top_posts = pd.DataFrame()
+
+        # =========================================================================
+        # 12. SNAPSHOT SEGUIDORES (Diário)
+        # =========================================================================
+        # Prepara dados para o append diário
+        if not df_profiles.empty:
+            df_snapshot = df_profiles[['workspace_name', 'profile_name', 'followers', 'extraction_timestamp']].copy()
+            # Adiciona data do snapshot (apenas data YYYY-MM-DD para o BigQuery futuramente)
+            df_snapshot['Data_Snapshot'] = datetime.now().strftime("%Y-%m-%d")
+            
+            # Reordena: Data, Workspace, Perfil, Seguidores
+            df_snapshot = df_snapshot[['Data_Snapshot', 'workspace_name', 'profile_name', 'followers']]
+            df_snapshot = df_snapshot.rename(columns={
+                'workspace_name': 'Cidade',
+                'profile_name': 'Perfil',
+                'followers': 'Seguidores'
+            })
+            logger.info(f"✅ {len(df_snapshot)} linhas de Snapshot de Seguidores preparadas.")
+        else:
+            df_snapshot = pd.DataFrame()
+
         # =====================================================================
         # ETAPA 3: LOAD (GOOGLE SHEETS)
         # =====================================================================
@@ -642,6 +749,9 @@ def run_etl() -> bool:
         logger.info(f"📑 Aba Imagens: Imagens_Detalhado")
         logger.info(f"📑 Aba Carro: Carrossel_Detalhado")
         logger.info(f"📑 Aba Monitoramento: Redes_Monitoramento")
+        logger.info(f"📑 Aba Histórico: Historico_Diario_MyCreator")
+        logger.info(f"📑 Aba Top Posts: Top_Posts_MyCreator")
+        logger.info(f"📑 Aba Snapshot: Snapshot_Seguidores (APPEND)")
         logger.info(f"📝 Modo: {config.write_mode}")
         
         # Carga 1: Posts (Aba padrão)
@@ -707,12 +817,36 @@ def run_etl() -> bool:
             logger.info(f"Uploading Base_Looker_Unificada ({len(df_unified)} linhas)...")
             success_unified = load_to_sheets(df_unified, config, tab_name="Base_Looker_Unificada")
             time.sleep(10)
+            
+        # Carga 10: Histórico Diário
+        success_history = True
+        if not df_history.empty:
+            logger.info(f"Uploading Historico_Diario_MyCreator ({len(df_history)} linhas)...")
+            success_history = load_to_sheets(df_history, config, tab_name="Historico_Diario_MyCreator")
+            time.sleep(10)
+
+        # Carga 11: Top Posts
+        success_top = True
+        if not df_top_posts.empty:
+            logger.info(f"Uploading Top_Posts_MyCreator ({len(df_top_posts)} linhas)...")
+            success_top = load_to_sheets(df_top_posts, config, tab_name="Top_Posts_MyCreator")
+            time.sleep(10)
+            
+        # Carga 12: Snapshot Seguidores (APPEND FORÇADO)
+        success_snapshot = True
+        if not df_snapshot.empty:
+            logger.info(f"Uploading Snapshot_Seguidores ({len(df_snapshot)} linhas) [APPEND]...")
+            # Cria config temporária para forçar append
+            from dataclasses import replace
+            config_append = replace(config, write_mode="append")
+            success_snapshot = load_to_sheets(df_snapshot, config_append, tab_name="Snapshot_Seguidores")
+            time.sleep(5)
         
-        if not success_posts or not success_profiles or not success_hashtags or not success_stories or not success_reels or not success_images or not success_carousels or not success_highlights or not success_unified:
+        if not success_posts or not success_profiles or not success_hashtags or not success_stories or not success_reels or not success_images or not success_carousels or not success_highlights or not success_unified or not success_history or not success_top or not success_snapshot:
             logger.error("❌ Falha parcial na atualização do Google Sheets!")
         
-        if all([success_posts, success_profiles, success_hashtags, success_stories, success_reels, success_images, success_carousels, success_highlights, success_unified]):
-            logger.info("✅ Google Sheets (Todas as 9 abas) atualizado com sucesso!")
+        if all([success_posts, success_profiles, success_hashtags, success_stories, success_reels, success_images, success_carousels, success_highlights, success_unified, success_history, success_top, success_snapshot]):
+            logger.info("✅ Google Sheets (Todas as 12 abas) atualizado com sucesso!")
         
         # =====================================================================
         # RESUMO FINAL

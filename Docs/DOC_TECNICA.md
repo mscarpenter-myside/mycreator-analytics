@@ -67,6 +67,16 @@ graph TD
     B2 -->|Padronização| B11("9. Base Unificada"):::etl
     B11 --> C9[("Aba: Base_Looker_Unificada")]:::storage
 
+    %% Novos Fluxos (Analytics Avançado)
+    B2 -->|Agrupa por Data| B12("10. Histórico Diário"):::etl
+    B12 --> C10[("Aba: Historico_Diario_MyCreator")]:::storage
+
+    B2 -->|Rank Top 20| B13("11. Top Posts"):::etl
+    B13 --> C11[("Aba: Top_Posts_MyCreator")]:::storage
+
+    B1 -->|Append Diario| B14("12. Snapshot Seguidores"):::etl
+    B14 --> C12[("Aba: Snapshot_Seguidores")]:::storage
+
     linkStyle 4 stroke:#7b1fa2,stroke-width:3px;
 ```
 
@@ -255,16 +265,18 @@ Contêm métricas exclusivas de cada formato (ex: `Duração` e `Plays` para Ree
 
 #### Aba: Redes_Monitoramento
 Resumo executivo atualizado a cada execução.
-- **Contagem de Posts**: Volume publicado.
 - **Engajamento Médio (%)**: Performance média da marca na cidade.
 - **Alcance/Impressões Totais**: Visibilidade total da marca na cidade.
-
-
----
 
 #### Aba: Visao_Geral_Perfil
 Nova aba contendo benchmarking de 365 dias (dados gerais da API).
 - **Total Posts / Alcance / Engajamento**: Métricas acumuladas para comparação.
+
+#### Analytics Interno (Historico, Top Posts, Snapshot)
+Novas abas focadas em reconstruir os gráficos do dashboard MyCreator.
+- **Historico_Diario**: Agregação temporal da performance dos posts.
+- **Top_Posts**: Rankings de melhores publicações.
+- **Snapshot_Seguidores**: Log histórico do crescimento de base.
 
 ---
 
