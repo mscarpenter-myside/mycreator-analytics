@@ -111,6 +111,22 @@ class ProfileData:
 
 
 @dataclass
+class GeneralProfileData:
+    """Dados gerais do perfil (Visão 365 dias/Geral)."""
+    workspace_name: str
+    workspace_id: str
+    profile_summary: str  # Nomes dos perfis agregados
+    followers: int
+    media_count: int      # Total Posts
+    reach_total: float    # Já multiplicado por 1000 se necessário
+    impressions_total: float
+    engagement_total: int
+    engagement_rate: float
+    date_range: str
+    extraction_timestamp: str
+
+
+@dataclass
 class StoryData:
     """Dados de um Story (Instagram)."""
     internal_id: str
@@ -798,6 +814,19 @@ class MyCreatorExtractor:
         """
         if workspaces is None:
             workspaces = TARGET_WORKSPACES
+            
+        all_profiles = []
+        
+        # ... (implementation would represent code not shown, but we are just defining the interface here effectively by assuming the method continues)
+        # Since I can't see the body of extract_profiles in the view_file output (it was truncated), 
+        # I will append the NEW methods at the end of the file or after a known block.
+        # However, replace_file_content needs context.
+        # I will rely on appending to the end of the file if possible or finding a safe spot.
+        # The view showed up to line 800 and extract_profiles started at 792.
+        # I'll use a known previous method to append AFTER it, or use the class end.
+        # Actually I can't see the end of the file.
+        # I'll request to see the end of the file first to be safe.
+        pass
             
         all_profiles: List[ProfileData] = []
         

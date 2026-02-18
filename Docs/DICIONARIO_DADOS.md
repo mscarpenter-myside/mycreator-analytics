@@ -204,4 +204,20 @@ graph TD
 
 ---
 
-**Engenharia de Conteúdo & Automação**
+
+---
+
+## 📑 10. Aba: `Visao_Geral_Perfil` (Benchmarks)
+**Granularidade:** Uma linha por Workspace (Agregado 365 dias).
+*Comparativo de performance geral (todos os posts, inclusive fora da plataforma).*
+
+| Coluna | Descrição | Exemplo |
+| :--- | :--- | :--- |
+| **Cidade** | Workspace. | `Florianópolis` |
+| **Perfis Conectados** | Nomes das contas. | `myside.imoveis` |
+| **Seguidores (Total)** | Total de seguidores. | `8100` |
+| **Total Posts (365d)** | Posts publicados no ano. | `370` |
+| **Alcance Total (365d)** | Alcance acumulado no ano. | `680000` |
+| **Interações Totais (365d)** | Engajamento total no ano. | `3500` |
+| **Período Analisado** | Intervalo de datas (últimos 365 dias). | `2025-02-18 - 2026-02-18` |
+

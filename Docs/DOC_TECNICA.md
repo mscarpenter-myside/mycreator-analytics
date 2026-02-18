@@ -226,10 +226,7 @@ erDiagram
 | **Seguidores (Total)** | Total de seguidores da conta |
 | **Posts MyCreator** | Quantidade de posts processados/extraídos |
 | **Engajamento Médio MyCreator (%)** | (Interações / Alcance) * 100 |
-<<<<<<< HEAD
-=======
-| **Taxa de Alcance MyCreator (%)** | (Alcance Médio / Seguidores) * 100 |
->>>>>>> 498ff95 (docs: adiciona fórmulas de cálculos e atualiza documentação técnica)
+
 | **Alcance Acumulado MyCreator** | Soma do alcance dos posts extraídos |
 | **Interações Totais MyCreator** | Soma de Likes + Comentários + Salvos + Shares |
 | **Atualizado em** | Data da extração |
@@ -261,6 +258,13 @@ Resumo executivo atualizado a cada execução.
 - **Contagem de Posts**: Volume publicado.
 - **Engajamento Médio (%)**: Performance média da marca na cidade.
 - **Alcance/Impressões Totais**: Visibilidade total da marca na cidade.
+
+
+---
+
+#### Aba: Visao_Geral_Perfil
+Nova aba contendo benchmarking de 365 dias (dados gerais da API).
+- **Total Posts / Alcance / Engajamento**: Métricas acumuladas para comparação.
 
 ---
 
