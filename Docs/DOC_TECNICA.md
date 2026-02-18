@@ -177,8 +177,9 @@ erDiagram
         string Link
         string Titulo
         int Duracao "Duração"
+        int Visualizacoes "Plays"
         int Tempo_Assistido
-        int Plays
+        float Tempo_Medio
         int Alcance
         int Likes
     }
@@ -213,6 +214,36 @@ erDiagram
         int Alcance
         int Impressoes
         float Engajamento_Pct
+    }
+
+    HISTORICO_DIARIO {
+        date Data PK
+        string Perfil PK
+        string Rede
+        int Posts_Publicados
+        int Alcance_Soma
+        int Engajamento_Soma
+    }
+
+    TOP_POSTS {
+        string Rank_Tipo
+        int Valor_Metrica
+        string Perfil
+        string Link
+    }
+
+    SNAPSHOT_SEGUIDORES {
+        date Data_Snapshot PK
+        string Perfil PK
+        int Seguidores
+    }
+
+    VISAO_GERAL {
+        date Data_Extracao
+        string Perfil
+        int Seguidores
+        int Posts_Ano
+        int Engajamento_Ano
     }
 ```
 
