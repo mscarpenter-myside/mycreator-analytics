@@ -34,7 +34,25 @@ graph TD
 
 ---
 
-## 📑 1. Aba: `Dados_Brutos` (Posts de Feed/Reels)
+## 📑 1. Aba: `Perfis` (MyCreator + Seguidores)
+**Granularidade:** Uma linha por Perfil.
+*Combina o total de seguidores (dado geral) com a performance acumulada apenas dos posts feitos via MyCreator.*
+
+| Coluna | Descrição | Exemplo |
+| :--- | :--- | :--- |
+| **Cidade** | Nome do Workspace. | `Florianópolis` |
+| **Perfil** | Nome da conta. | `myside.imoveis` |
+| **Seguidores (Total)** | Total de seguidores da conta (API Geral). | `15400` |
+| **Posts MyCreator** | Qtd. posts publicados pela ferramenta. | `12` |
+| **Engajamento Médio MyCreator (%)** | `(Interações MyCreator / Alcance MyCreator)`. | `4.5` |
+| **Taxa de Alcance MyCreator (%)** | `((Alcance Médio / Seguidores) * 100)`. | `15.2` |
+| **Alcance Acumulado MyCreator** | Soma do alcance dos posts da ferramenta. | `45000` |
+| **Interações Totais MyCreator** | Soma de likes, comments, shares, saves. | `2300` |
+| **Atualizado em** | Data da extração. | `13/02/2026 02:00:00` |
+
+---
+
+## 📑 2. Aba: `Dados_Brutos` (Posts de Feed/Reels)
 **Granularidade:** Uma linha por Post publicado.
 
 | Coluna | Descrição | Exemplo |
