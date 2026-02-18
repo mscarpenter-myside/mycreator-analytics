@@ -1,101 +1,81 @@
-# 🧮 Fórmulas e Cálculos do ETL MyCreator
+# 🧮 Fórmulas e Cálculos Detalhados do ETL MyCreator
 
-Este documento detalha **matematicamente** como cada métrica é calculada e processada pelo robô de dados.
+Este documento serve como a **"Bíblia de Métricas"** do projeto. Ele explica não só a matemática, mas o **porquê** de cada cálculo e como interpretá-lo no dia a dia.
 
 ---
 
 ## 1. Aba: `Perfis` (Métricas Agregadas)
 
-As métricas desta aba são calculadas em duas etapas: extração direta da API (Snapshot) e agregação dos posts processados (Cálculo ETL).
+Esta aba é um **Resumo Executivo** de cada influenciador/conta. Ela mistura dados que vêm prontos do Instagram (Snapshot) com dados calculados pela nossa ferramenta (Performance).
 
-### A. Métricas de Snapshot (Direto da Fonte)
-Dados obtidos no momento da execução, refletindo o estado atual da conta.
+### A. Métricas de Snapshot (O que a conta É hoje)
+*Dados lidos diretamente do Instagram no momento que o robô roda.*
 
-*   **Seguidores (Total)**
-    *   *Fonte:* Endpoint `/backend/analytics/overview/getSummary`
-    *   *Lógica:* Valor bruto retornado pela API para o dia atual.
+#### **1. Seguidores (Total)**
+*   **Definição:** O número exato de seguidores que a conta tem agora.
+*   **Fonte:** API MyCreator (`getSummary`).
+*   **Para que serve:** Mede o **tamanho da base** (potencial máximo de alcance orgânico direto).
 
-### B. Métricas Calculadas (Performance MyCreator)
-Calculadas somando ou dividindo os dados dos posts que passaram pelo ETL.
+### B. Métricas de Performance MyCreator (O que a conta FEZ)
+*Calculadas somando apenas os posts que estão cadastrados na ferramenta.*
 
-*   **Posts MyCreator**
-    *   *Fórmula:* $\text{Contagem de linhas na aba Dados\_Brutos com esse Perfil}$
-    *   *Filtro:* Apenas posts retornados pela ferramenta na lista de "Published Plans".
+#### **2. Posts MyCreator**
+*   **Definição:** Quantidade de publicações que foram processadas neste relatório.
+*   **Importância:** Mostra a **produtividade** da equipe. Se o número for muito baixo, as outras métricas (como Alcance Acumulado) também serão baixas, não por performance ruim, mas por falta de volume.
 
-*   **Alcance Acumulado MyCreator**
-    *   *Fórmula:* $\sum (\text{Alcance de cada Post})$
-    *   *Descrição:* Soma aritmética simples do alcance único de cada post. Não desconta sobreposição de usuários (se a mesma pessoa viu 2 posts, conta 2x).
+#### **3. Alcance Acumulado MyCreator**
+*   **Fórmula:** $\sum (\text{Alcance de cada Post})$
+*   **Exemplo Prático:**
+    *   Post 1: Alcançou 1.000 pessoas.
+    *   Post 2: Alcançou 1.500 pessoas.
+    *   **Alcance Acumulado = 2.500**.
+*   **⚠️ Ponto de Atenção (Soma Simples vs. Únicos):**
+    *   Este número **NÃO** significa que 2.500 pessoas diferentes viram o conteúdo.
+    *   Se a *Maria* viu o Post 1 e também viu o Post 2, ela foi contada duas vezes.
+    *   **Interpretação Correta:** Representa o "volume de impacto" ou "tonelagem" de distribuição de conteúdo gerado pela ferramenta.
 
-*   **Interações Totais MyCreator**
-    *   *Fórmula:* $\sum (\text{Likes}) + \sum (\text{Comentários}) + \sum (\text{Salvos}) + \sum (\text{Compartilhamentos})$
-    *   *Nota:* Soma absoluta de todas as interações.
+#### **4. Interações Totais MyCreator**
+*   **Fórmula:** $\text{Likes} + \text{Comentários} + \text{Salvos} + \text{Compartilhamentos}$
+*   **Definição:** A soma de qualquer clique relevante que o usuário deu no conteúdo.
+*   **Para que serve:** Mede o volume bruto de reação da audiência. O "barulho" que a marca fez.
 
-*   **Engajamento Médio MyCreator (%)**
-    *   *Fórmula Atual:* 
-        $$ \left( \frac{\text{Interações Totais MyCreator}}{\text{Alcance Acumulado MyCreator}} \right) \times 100 $$
-    *   *Arredondamento:* 2 casas decimais.
-    *   *Interpretação:* Representa a taxa de interação sobre o alcance gerado. **NÃO é dividida pelo número de seguidores.**
-
----
-
-## 2. Aba: `Redes_Monitoramento` (Agregação por Cidade)
-
-Tabela gerada agrupando todos os posts processados por `Cidade` e `Rede Social`.
-
-*   **Contagem de Posts**
-    *   *Fórmula:* $\text{Count (ID Interno)}$ agrupado por cidade.
-
-*   **Alcance Total**
-    *   *Fórmula:* $\sum (\text{Alcance})$ de todos os posts da cidade.
-
-*   **Impressões Totais**
-    *   *Fórmula:* $\sum (\text{Impressões})$ de todos os posts da cidade.
-
-*   **Engajamento Médio (%)**
-    *   *Fórmula:* $\text{Média Aritmética} (\text{Taxa de Engajamento de cada Post})$
-    *   *Detalhe:* Calcula-se a média das porcentagens individuais, não a média ponderada global.
-    *   *Exemplo:* Post A (10%) + Post B (20%) = Média 15%.
+#### **5. Engajamento Médio MyCreator (%)**
+*   **Fórmula Atual (Por Alcance):** 
+    $$ \left( \frac{\text{Interações Totais}}{\text{Alcance Acumulado}} \right) \times 100 $$
+*   **Exemplo:**
+    *   Alcance Acumulado: 10.000
+    *   Interações Totais: 500
+    *   **Resultado:** $5,00\%$.
+*   **Interpretação:** De cada 100 vezes que o conteúdo apareceu na tela de alguém, em 5 vezes a pessoa interagiu.
+*   **Dúvida Comum:** *"Por que não dividir por seguidores?"*
+    *   Dividir por seguidores mostra o engajamento da **Base** (bom para ver se os fãs estão ativos).
+    *   Dividir por alcance mostra a **Qualidade do Conteúdo** (bom para ver se o post é interessante, independente de quantas pessoas viram).
+    *   *Nossa escolha atual:* Focamos na qualidade do conteúdo (Por Alcance).
 
 ---
 
-## 3. Aba: `Hashtags_Analitico` (Mineração de Texto)
+## 2. Aba: `Redes_Monitoramento` (Visão por Cidade)
 
-Gerada via execução de Regex sobre as legendas dos posts.
+Aqui agrupamos tudo por Cidade para comparar performances regionais (ex: Florianópolis vs Curitiba).
 
-*   **Identificação (Regex)**
-    *   *Padrão:* `r"#(\w+)"` (Captura palavras seguidas de #).
-    *   *Processamento:* Uma linha de post com 3 hashtags vira 3 linhas nesta análise.
-
-*   **Qtd Usos**
-    *   *Fórmula:* $\text{Count (IDs de Post que contêm a Hashtag)}$
-
-*   **Engajamento Total da Hashtag**
-    *   *Fórmula:* $\sum (\text{Likes} + \text{Comentários} + \text{Salvos} + \text{Shares})$ de todos os posts que usaram a tag.
-    *   *Nota:* Se um post tem 100 likes e usa #imoveis e #casa, os 100 likes são somados tanto para #imoveis quanto para #casa.
+#### **1. Engajamento Médio (%) das Cidades**
+*   **Fórmula:** Média simples das taxas de cada post.
+*   **Comportamento Matemático:**
+    *   Post Viral (100k alcance, 2% engajamento)
+    *   Post Nichado (100 alcance, 20% engajamento)
+    *   **Média na Tabela:** $(2\% + 20\%) / 2 = 11\%$.
+*   **Por que assim?** Para evitar que um único post viral "esmague" a média e esconda que os outros posts tiveram bom desempenho qualitativo com a base fiel. Valoriza a consistência.
 
 ---
 
-## 4. Abas Detalhadas (Dados Brutos, Reels, Imagens...)
+## 3. Glossário de Métricas Nativas (Instagram/Facebook)
 
-Nestas abas, as métricas vêm diretamente da API de Analytics do Instagram/Facebook para cada post individual.
+Termos que vêm direto da API para as abas detalhadas (Reels, Imagens, etc).
 
-*   **Taxa de Engajamento por Post (%)**
-    *   *Fórmula:* 
-        $$ \left( \frac{\text{Likes} + \text{Comentários} + \text{Salvos}}{\text{Alcance}} \right) \times 100 $$
-    *   *Nota:* O código calcula isso para cada linha. Se Alcance = 0, o Engajamento é 0.
-
-*   **Tempo Médio (Reels)**
-    *   *Fonte:* Campo `avg_watch_time` ou `average_watch_time` da API.
-    *   *Unidade:* Segundos.
-
-*   **Plays**
-    *   *Fonte:* Campo `plays`, `videoViews`, ou `views` da API.
-    *   *Tratamento:* Se o valor não existir, é assumido 0. Na base unificada, se Plays for 0, usamos Impressões como fallback.
-
----
-
-## 5. Status de Dados (Lógica de Erro)
-
-*   **Coluna: Status Dados / Analytics Error**
-    *   `"Sem dados"`: O post foi listado, mas a chamada de analytics retornou vazio (comum em posts muito recentes ou erros de API).
-    *   `"ID ou Conta ausente"`: O post não tinha ID de plataforma vinculado.
+| Métrica | O que significa? |
+| :--- | :--- |
+| **Impressões** | Quantas vezes o post apareceu na tela. Se eu ver o mesmo post 5 vezes, conta 5 impressões. |
+| **Alcance** | Quantas **contas únicas** viram. Se eu ver 5 vezes, conta 1 alcance. |
+| **Plays** | Quantas vezes o vídeo começou a rodar (mesmo que por 1 segundo). |
+| **Tempo Médio (Reels)** | Quanto tempo, em média, as pessoas ficaram assistindo. Se o vídeo tem 30s e a média é 3s, o conteúdo não está prendendo atenção (Retenção baixa). |
+| **Salvos** | O "Super Like". Indica intenção de compra ou utilidade alta. É o KPI mais valioso para topo de funil. |
