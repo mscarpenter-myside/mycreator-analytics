@@ -193,6 +193,7 @@ graph TD
 | **Link** | Permalink. | `https://...` |
 | **Legenda/Título** | Texto do post. | `Confira este imóvel...` |
 | **Alcance** | Alcance total. | `1500` |
+| **Taxa de Alcance (%)** | `(Alcance / Seguidores) * 100`. | `10.5` |
 | **Impressões** | Impressões totais. | `2000` |
 | **Engajamento (%)** | Taxa de engajamento oficial. | `5.2` |
 | **Likes** | Total de curtidas. | `120` |

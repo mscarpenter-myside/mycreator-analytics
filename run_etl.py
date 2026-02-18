@@ -204,6 +204,17 @@ def run_etl() -> bool:
                     if row['reach_mycreator'] > 0 else 0.0, 
                     axis=1
                 )
+
+                # Calcula Taxa de Alcance Média (%)
+                # Fórmula: ((Alcance Acumulado / Posts) / Seguidores) * 100
+                def calc_reach_rate(row):
+                    if row['posts_mycreator'] == 0 or row['followers'] == 0:
+                        return 0.0
+                    
+                    avg_reach = row['reach_mycreator'] / row['posts_mycreator']
+                    return round((avg_reach / row['followers']) * 100, 2)
+
+                df_profiles_final['reach_rate_mycreator'] = df_profiles_final.apply(calc_reach_rate, axis=1)
                 
             else:
                 # Se não tem posts, tudo é zero
@@ -212,6 +223,7 @@ def run_etl() -> bool:
                 df_profiles_final['engagement_mycreator'] = 0
                 df_profiles_final['reach_mycreator'] = 0
                 df_profiles_final['engagement_rate_mycreator'] = 0.0
+                df_profiles_final['reach_rate_mycreator'] = 0.0
 
         # 5. Seleção e Renomeação de Colunas para aba Perfis
         # Mapeamos as novas métricas calculadas em vez das genéricas
@@ -221,6 +233,7 @@ def run_etl() -> bool:
             "followers": "Seguidores (Total)",
             "posts_mycreator": "Posts MyCreator",  # Nova métrica real
             "engagement_rate_mycreator": "Engajamento Médio MyCreator (%)", # Nova métrica real
+            "reach_rate_mycreator": "Taxa de Alcance MyCreator (%)", # Nova métrica
             "reach_mycreator": "Alcance Acumulado MyCreator", # Nova métrica real
             "engagement_mycreator": "Interações Totais MyCreator", # Nova métrica real
             "extraction_timestamp": "Atualizado em"
@@ -526,6 +539,17 @@ def run_etl() -> bool:
             if 'plays' in df_uni_raw.columns:
                  df_uni_raw['impressions'] = df_uni_raw[['impressions', 'plays']].max(axis=1)
 
+            # Calcula Taxa de Alcance Individual (%)
+            # Fórmula: (Alcance / Seguidores) * 100
+            def calc_post_reach_rate(row):
+                followers = row.get('follower_count', 0)
+                reach = row.get('reach', 0)
+                if followers > 0:
+                    return round((reach / followers) * 100, 2)
+                return 0.0
+
+            df_uni_raw['reach_rate'] = df_uni_raw.apply(calc_post_reach_rate, axis=1)
+
             # Selecão e Renomeação
             unified_mapping = {
                 "internal_id": "ID Post",
@@ -538,6 +562,7 @@ def run_etl() -> bool:
                 "permalink": "Link",
                 "title": "Legenda/Título",
                 "reach": "Alcance",
+                "reach_rate": "Taxa de Alcance (%)",
                 "impressions": "Impressões",
                 "engagement_rate": "Engajamento (%)",
                 "likes": "Likes",

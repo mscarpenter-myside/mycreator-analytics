@@ -226,6 +226,10 @@ erDiagram
 | **Seguidores (Total)** | Total de seguidores da conta |
 | **Posts MyCreator** | Quantidade de posts processados/extraídos |
 | **Engajamento Médio MyCreator (%)** | (Interações / Alcance) * 100 |
+<<<<<<< HEAD
+=======
+| **Taxa de Alcance MyCreator (%)** | (Alcance Médio / Seguidores) * 100 |
+>>>>>>> 498ff95 (docs: adiciona fórmulas de cálculos e atualiza documentação técnica)
 | **Alcance Acumulado MyCreator** | Soma do alcance dos posts extraídos |
 | **Interações Totais MyCreator** | Soma de Likes + Comentários + Salvos + Shares |
 | **Atualizado em** | Data da extração |
