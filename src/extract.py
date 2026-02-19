@@ -1071,3 +1071,129 @@ class MyCreatorExtractor:
                 logger.error(f"Erro ao processar workspace {ws_name} para perfis: {e}")
                 
         return all_profiles
+
+    # =========================================================================
+    # EXTRAÇÃO DE CRESCIMENTO DE SEGUIDORES (audience_growth)
+    # =========================================================================
+    def extract_audience_growth(self, workspaces: List[dict] = None) -> List[dict]:
+        """
+        Extrai dados diários de crescimento de seguidores de todos os perfis.
+        
+        Chama o endpoint /backend/analytics/overview/instagram/audience_growth
+        para cada conta Instagram de cada workspace.
+        
+        Returns:
+            Lista de dicts com: data, cidade, perfil, seguidores, variacao_diaria
+        """
+        if workspaces is None:
+            workspaces = TARGET_WORKSPACES
+            
+        all_rows = []
+        
+        from datetime import datetime, timedelta, timezone as tz
+        tz_brasilia = tz(timedelta(hours=-3))
+        now = datetime.now(tz_brasilia)
+        end_date = now.strftime("%Y-%m-%d")
+        # 60 dias — API retorna zeros além disso
+        start_date = (now - timedelta(days=60)).strftime("%Y-%m-%d")
+        date_range = f"{start_date} - {end_date}"
+        
+        logger.info(f"\n{'='*60}")
+        logger.info(f"📈 INICIANDO EXTRAÇÃO DE CRESCIMENTO DE SEGUIDORES")
+        logger.info(f"📅 Período: {date_range}")
+        logger.info(f"{'='*60}")
+        
+        for ws in workspaces:
+            ws_id = ws["id"]
+            ws_name = ws["name"]
+            
+            try:
+                # 1. Busca contas Instagram do workspace
+                resp = self._handle_401_and_retry(
+                    "post",
+                    f"{self.config.base_url}/backend/fetchSocialAccounts",
+                    json={"workspace_id": ws_id},
+                    timeout=15
+                )
+                
+                if resp.status_code != 200:
+                    logger.warning(f"⚠️ fetchSocialAccounts falhou para {ws_name}: {resp.status_code}")
+                    continue
+                
+                social_data = resp.json()
+                ig_data = social_data.get("instagram", {})
+                ig_accounts = ig_data.get("accounts", []) if isinstance(ig_data, dict) else []
+                
+                if not ig_accounts:
+                    logger.warning(f"⚠️ Nenhuma conta IG em {ws_name}")
+                    continue
+                
+                # 2. Para cada conta, busca audience_growth
+                for acc in ig_accounts:
+                    ig_id = str(acc.get("platform_identifier") or acc.get("instagram_id") or "")
+                    name = acc.get("name", "Unknown")
+                    
+                    if not ig_id:
+                        continue
+                    
+                    payload = {
+                        "workspace_id": ws_id,
+                        "accounts": [ig_id],
+                        "facebook_accounts": [],
+                        "twitter_accounts": [],
+                        "instagram_accounts": [],
+                        "pinterest_accounts": [],
+                        "linkedin_accounts": [],
+                        "tiktok_accounts": [],
+                        "youtube_accounts": [],
+                        "date": date_range,
+                        "timezone": "America/Sao_Paulo"
+                    }
+                    
+                    try:
+                        resp_growth = self._handle_401_and_retry(
+                            "post",
+                            f"{self.config.base_url}/backend/analytics/overview/instagram/audience_growth",
+                            json=payload,
+                            timeout=15
+                        )
+                        
+                        if resp_growth.status_code != 200:
+                            logger.warning(f"   ⚠️ audience_growth para {name}: {resp_growth.status_code}")
+                            continue
+                        
+                        data = resp_growth.json()
+                        overview = data.get("overview", {})
+                        growth = overview.get("audience_growth", {})
+                        
+                        buckets = growth.get("buckets", [])
+                        followers = growth.get("followers", [])
+                        followers_daily = growth.get("followers_daily", [])
+                        
+                        if not buckets:
+                            logger.warning(f"   ⚠️ Sem dados de crescimento para {name}")
+                            continue
+                        
+                        # Monta linhas (1 por dia) — dados brutos
+                        for i, date_str in enumerate(buckets):
+                            row = {
+                                "data": date_str,
+                                "cidade": ws_name,
+                                "perfil": name,
+                                "seguidores": followers[i] if i < len(followers) else 0,
+                                "variacao_diaria": followers_daily[i] if i < len(followers_daily) else 0,
+                            }
+                            all_rows.append(row)
+                        
+                        logger.info(f"   📈 {ws_name} → {name}: {len(buckets)} dias de dados")
+                        
+                    except Exception as e:
+                        logger.error(f"   ❌ Erro audience_growth {name}: {e}")
+                    
+                    time.sleep(0.5)
+                    
+            except Exception as e:
+                logger.error(f"❌ Erro ao processar workspace {ws_name} para audience_growth: {e}")
+        
+        logger.info(f"\n📊 Total: {len(all_rows)} registros de crescimento extraídos")
+        return all_rows

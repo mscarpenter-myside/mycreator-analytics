@@ -288,4 +288,16 @@ graph TD
 | **perfil** | Nome do perfil. | `myside.goiania` |
 | **seguidores** | Contagem total de seguidores no dia. | `12500` |
 
+---
 
+## 📈 14. Aba: `crescimento_seguidores` (Audience Growth)
+**Granularidade:** Uma linha por Dia por Perfil.
+*Dados diários de crescimento de seguidores extraídos do endpoint audience_growth da API MyCreator. Período: 60 dias.*
+
+| Coluna | Descrição | Exemplo |
+| :--- | :--- | :--- |
+| **data** | Data do dia. | `2026-02-19` |
+| **cidade** | Workspace. | `Florianópolis` |
+| **perfil** | Nome do perfil IG. | `myside.imoveis` |
+| **seguidores** | Total de seguidores no dia. | `3727` |
+| **variacao_diaria** | Ganho/perda de seguidores no dia. | `5` ou `-2` |

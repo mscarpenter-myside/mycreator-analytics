@@ -73,6 +73,10 @@ def run_etl() -> bool:
         logger.info("\n📡 ETAPA 1.3: EXTRAÇÃO DE STORIES")
         all_stories = extractor.fetch_stories_list()
         
+        # Extrai Crescimento de Seguidores (audience_growth)
+        logger.info("\n📡 ETAPA 1.4: EXTRAÇÃO DE CRESCIMENTO DE SEGUIDORES")
+        audience_growth_data = extractor.extract_audience_growth()
+        
         if not all_posts and not all_profiles and not all_stories:
             logger.warning("⚠️ Nada extraído (nem posts, nem perfis, nem stories).")
             return False
@@ -93,6 +97,23 @@ def run_etl() -> bool:
         # Converte lista de dataclass para DataFrame (Stories)
         records_stories = [asdict(story) for story in all_stories]
         df_stories = pd.DataFrame(records_stories)
+
+        # Converte lista de dicts para DataFrame (Crescimento Seguidores)
+        df_audience_growth = pd.DataFrame(audience_growth_data) if audience_growth_data else pd.DataFrame()
+        
+        # Limpeza do audience_growth (Transform)
+        if not df_audience_growth.empty:
+            # 1. Remove dias sem dados (seguidores = 0)
+            df_audience_growth = df_audience_growth[df_audience_growth["seguidores"] > 0].copy()
+            
+            # 2. Neutraliza spike inicial: para cada perfil, a primeira linha
+            #    tem variacao_diaria = total de seguidores (não é variação real)
+            for perfil in df_audience_growth["perfil"].unique():
+                mask = df_audience_growth["perfil"] == perfil
+                first_idx = df_audience_growth.loc[mask].index[0]
+                df_audience_growth.loc[first_idx, "variacao_diaria"] = 0
+            
+            logger.info(f"📊 Crescimento: {len(df_audience_growth)} registros válidos após limpeza")
         
         # =================================================================
         # MAPEAMENTO DE COLUNAS - snake_case
@@ -760,6 +781,7 @@ def run_etl() -> bool:
         logger.info(f"📑 Aba Histórico: historico_diario_mycreator")
         logger.info(f"📑 Aba Top Posts: top_posts_mycreator")
         logger.info(f"📑 Aba Snapshot: snapshot_seguidores (APPEND)")
+        logger.info(f"📑 Aba Crescimento: crescimento_seguidores")
         logger.info(f"📝 Modo: {config.write_mode}")
         
         # Carga 1: Posts (Aba padrão)
@@ -849,12 +871,19 @@ def run_etl() -> bool:
             config_append = replace(config, write_mode="append")
             success_snapshot = load_to_sheets(df_snapshot, config_append, tab_name="snapshot_seguidores")
             time.sleep(5)
+
+        # Carga 13: Crescimento de Seguidores (audience_growth)
+        success_growth = True
+        if not df_audience_growth.empty:
+            logger.info(f"Uploading crescimento_seguidores ({len(df_audience_growth)} linhas)...")
+            success_growth = load_to_sheets(df_audience_growth, config, tab_name="crescimento_seguidores")
+            time.sleep(5)
         
-        if not success_posts or not success_profiles or not success_hashtags or not success_stories or not success_reels or not success_images or not success_carousels or not success_highlights or not success_unified or not success_history or not success_top or not success_snapshot:
+        if not success_posts or not success_profiles or not success_hashtags or not success_stories or not success_reels or not success_images or not success_carousels or not success_highlights or not success_unified or not success_history or not success_top or not success_snapshot or not success_growth:
             logger.error("❌ Falha parcial na atualização do Google Sheets!")
         
-        if all([success_posts, success_profiles, success_hashtags, success_stories, success_reels, success_images, success_carousels, success_highlights, success_unified, success_history, success_top, success_snapshot]):
-            logger.info("✅ Google Sheets (Todas as 12 abas) atualizado com sucesso!")
+        if all([success_posts, success_profiles, success_hashtags, success_stories, success_reels, success_images, success_carousels, success_highlights, success_unified, success_history, success_top, success_snapshot, success_growth]):
+            logger.info("✅ Google Sheets (Todas as 13 abas) atualizado com sucesso!")
         
         # =====================================================================
         # RESUMO FINAL
