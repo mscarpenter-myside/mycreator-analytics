@@ -140,7 +140,7 @@ def get_config() -> Config:
         
         # Google Sheets
         google_sheet_id=os.environ.get("GOOGLE_SHEET_ID", ""),
-        sheet_tab_name=os.environ.get("SHEET_TAB_NAME", "Dados_Brutos"),
+        sheet_tab_name=os.environ.get("SHEET_TAB_NAME", "dados_brutos"),
         gcp_credentials=load_gcp_credentials(),
         
         # Configurações de execução

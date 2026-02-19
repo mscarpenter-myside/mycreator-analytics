@@ -95,43 +95,42 @@ def run_etl() -> bool:
         df_stories = pd.DataFrame(records_stories)
         
         # =================================================================
-        # MAPEAMENTO DE COLUNAS - ORDEM DEFINITIVA PARA DIRETORIA
+        # MAPEAMENTO DE COLUNAS - snake_case
         # =================================================================
-        # Primeira coluna: Cidade | Última coluna: Timestamp de Atualização
         column_mapping = {
-            # IDENTIFICAÇÃO (primeira: Cidade, segunda: Data de Publicação)
-            "workspace_name": "Cidade",
-            "published_at": "Data de Publicação",
-            "platform": "Rede Social",  # Instagram, Facebook, etc
-            "profile_name": "Perfil",
-            "follower_count": "Seguidores",  # Total de seguidores do perfil
-            "post_type": "Tipo",  # REELS, FEED, STORY
-            "media_type": "Tipo de Mídia",  # Reels, Carousel, Video, Image (do Instagram Analytics)
+            # IDENTIFICAÇÃO
+            "workspace_name": "cidade",
+            "published_at": "data_publicacao",
+            "platform": "rede_social",
+            "profile_name": "perfil",
+            "follower_count": "seguidores",
+            "post_type": "formato",
+            "media_type": "tipo_midia",
             
             # CONTEÚDO
-            "title": "Título",  # Nome do vídeo/publicação
-            "caption": "Legenda",
+            "title": "titulo",
+            "caption": "legenda",
             
             # ENGAJAMENTO
-            "likes": "Likes",
-            "comments": "Comentários",
-            "saves": "Salvos",
-            "shares": "Compartilhamentos",
+            "likes": "curtidas",
+            "comments": "comentarios",
+            "saves": "salvos",
+            "shares": "compartilhamentos",
             
             # PERFORMANCE
-            "reach": "Alcance",
-            "reach_rate": "Taxa de Alcance (%)",
-            "impressions": "Impressões",
-            "plays": "Plays",
-            "total_watch_time": "Tempo Assistido (seg)",
-            "avg_watch_time": "Tempo Médio (seg)",
+            "reach": "alcance",
+            "reach_rate": "taxa_alcance",
+            "impressions": "impressoes",
+            "plays": "visualizacoes",
+            "total_watch_time": "tempo_assistido_seg",
+            "avg_watch_time": "tempo_medio_seg",
             
-            # TÉCNICO (última: Timestamp de Atualização)
-            "permalink": "Link",
-            "external_id": "ID Instagram",
-            "internal_id": "ID Interno",
-            "analytics_error": "Status Dados",
-            "extraction_timestamp": "Timestamp de Atualização",
+            # TÉCNICO
+            "permalink": "link",
+            "external_id": "id_instagram",
+            "internal_id": "id_interno",
+            "analytics_error": "status_dados",
+            "extraction_timestamp": "timestamp",
         }
         
         # Seleciona e renomeia colunas existentes (preserva ordem do dict)
@@ -238,46 +237,46 @@ def run_etl() -> bool:
         # 5. Seleção e Renomeação de Colunas para aba Perfis
         # Mapeamos as novas métricas calculadas em vez das genéricas
         profile_mapping = {
-            "workspace_name": "Cidade",
-            "profile_name": "Perfil",
-            "followers": "Seguidores (Total)",
-            "posts_mycreator": "Posts MyCreator",  # Nova métrica real
-            "engagement_rate_mycreator": "Engajamento Médio MyCreator (%)", # Nova métrica real
-            "reach_rate_mycreator": "Taxa de Alcance MyCreator (%)", # Nova métrica
-            "reach_mycreator": "Alcance Acumulado MyCreator", # Nova métrica real
-            "engagement_mycreator": "Interações Totais MyCreator", # Nova métrica real
-            "extraction_timestamp": "Atualizado em"
+            "workspace_name": "cidade",
+            "profile_name": "perfil",
+            "followers": "seguidores_total",
+            "posts_mycreator": "posts_mycreator",
+            "engagement_rate_mycreator": "engajamento_medio_mycreator",
+            "reach_rate_mycreator": "taxa_alcance_mycreator",
+            "reach_mycreator": "alcance_acumulado_mycreator",
+            "engagement_mycreator": "interacoes_totais_mycreator",
+            "extraction_timestamp": "timestamp"
         }
 
         columns_profiles_export = [col for col in profile_mapping.keys() if col in df_profiles_final.columns]
         df_final_profiles = df_profiles_final[columns_profiles_export].rename(columns=profile_mapping)
         
         # Formata Data de Publicação apenas como data (DD/MM/YYYY)
-        if "Data de Publicação" in df_final.columns:
-            df_final["Data de Publicação"] = pd.to_datetime(
-                df_final["Data de Publicação"], errors='coerce'
+        if "data_publicacao" in df_final.columns:
+            df_final["data_publicacao"] = pd.to_datetime(
+                df_final["data_publicacao"], errors='coerce'
             ).dt.strftime("%d/%m/%Y")
         
         # Ordena por cidade e data (mais recentes primeiro)
-        if "Data de Publicação" in df_final.columns and "Cidade" in df_final.columns:
+        if "data_publicacao" in df_final.columns and "cidade" in df_final.columns:
             df_final = df_final.sort_values(
-                by=["Cidade", "Data de Publicação"], 
+                by=["cidade", "data_publicacao"], 
                 ascending=[True, False]
             )
         
         # Estatísticas
         total_posts = len(df_final)
-        total_likes = int(df_final["Likes"].sum()) if "Likes" in df_final.columns else 0
-        total_reach = int(df_final["Alcance"].sum()) if "Alcance" in df_final.columns else 0
-        total_comments = int(df_final["Comentários"].sum()) if "Comentários" in df_final.columns else 0
+        total_likes = int(df_final["curtidas"].sum()) if "curtidas" in df_final.columns else 0
+        total_reach = int(df_final["alcance"].sum()) if "alcance" in df_final.columns else 0
+        total_comments = int(df_final["comentarios"].sum()) if "comentarios" in df_final.columns else 0
         
         if not df_final.empty:
             logger.info(f"📊 Total: {total_posts} posts")
             # DEBUG: Imprime tipos únicos para alinhar com Looker Studio
-            if "Tipo" in df_final.columns:
-                logger.info(f"   🔍 Tipos Únicos (Tipo): {df_final['Tipo'].unique()}")
-            if "Tipo de Mídia" in df_final.columns:
-                logger.info(f"   🔍 Mídias Únicas (Tipo de Mídia): {df_final['Tipo de Mídia'].unique()}")
+            if "formato" in df_final.columns:
+                logger.info(f"   🔍 Tipos Únicos (formato): {df_final['formato'].unique()}")
+            if "tipo_midia" in df_final.columns:
+                logger.info(f"   🔍 Mídias Únicas (tipo_midia): {df_final['tipo_midia'].unique()}")
 
         logger.info(f"❤️ Likes: {total_likes:,}")
         logger.info(f"👁️ Alcance: {total_reach:,}")
@@ -285,9 +284,9 @@ def run_etl() -> bool:
         
         # Resumo por cidade
         logger.info("\n📈 RESUMO POR CIDADE:")
-        for cidade in df_final["Cidade"].unique():
-            df_cidade = df_final[df_final["Cidade"] == cidade]
-            logger.info(f"   • {cidade}: {len(df_cidade)} posts | {int(df_cidade['Likes'].sum())} likes")
+        for cidade in df_final["cidade"].unique():
+            df_cidade = df_final[df_final["cidade"] == cidade]
+            logger.info(f"   • {cidade}: {len(df_cidade)} posts | {int(df_cidade['curtidas'].sum())} curtidas")
         
         # =================================================================
         # 6. Processamento de Hashtags (NOVO)
@@ -329,20 +328,20 @@ def run_etl() -> bool:
             
             # Renomeia colunas para PT-BR
             hashtag_mapping = {
-                "hashtags": "Hashtag",
-                "internal_id": "Qtd Usos",
-                "engagement_total": "Engajamento Total",
-                "reach": "Alcance Acumulado",
-                "impressions": "Impressões Acumuladas",
-                "likes": "Total Likes",
-                "comments": "Total Comentários"
+                "hashtags": "hashtag",
+                "internal_id": "qtd_usos",
+                "engagement_total": "engajamento_total",
+                "reach": "alcance_acumulado",
+                "impressions": "impressoes_acumuladas",
+                "likes": "total_likes",
+                "comments": "total_comentarios"
             }
             
             cols_export_tags = [c for c in hashtag_mapping.keys() if c in df_hashtags_final.columns]
             df_hashtags_final = df_hashtags_final[cols_export_tags].rename(columns=hashtag_mapping)
             
-            # Ordena por Qtd Usos
-            df_hashtags_final = df_hashtags_final.sort_values(by="Qtd Usos", ascending=False)
+            # Ordena por qtd_usos
+            df_hashtags_final = df_hashtags_final.sort_values(by="qtd_usos", ascending=False)
             
             logger.info(f"✅ {len(df_hashtags_final)} hashtags identificadas.")
         else:
@@ -354,19 +353,19 @@ def run_etl() -> bool:
         logger.info("\n📸 PROCESSANDO STORIES...")
         
         story_mapping = {
-            "workspace_name": "Cidade",
-            "published_at": "Data",
-            "profile_name": "Perfil",
-            "permalink": "Link",
-            "media_url": "Preview",
-            "external_id": "ID Story",
-            "reach": "Alcance",
-            "impressions": "Impressões",
-            "exits": "Saídas",
-            "replies": "Respostas",
-            "taps_forward": "Avançar",
-            "taps_back": "Voltar",
-            "extraction_timestamp": "Atualizado em"
+            "workspace_name": "cidade",
+            "published_at": "data",
+            "profile_name": "perfil",
+            "permalink": "link",
+            "media_url": "preview",
+            "external_id": "id_story",
+            "reach": "alcance",
+            "impressions": "impressoes",
+            "exits": "saidas",
+            "replies": "respostas",
+            "taps_forward": "taps_avancar",
+            "taps_back": "taps_voltar",
+            "extraction_timestamp": "timestamp"
         }
         
         if not df_stories.empty:
@@ -374,9 +373,9 @@ def run_etl() -> bool:
             df_stories_final = df_stories[cols_export_stories].rename(columns=story_mapping)
             
             # Formata Data
-            if "Data" in df_stories_final.columns:
-                df_stories_final["Data"] = pd.to_datetime(
-                    df_stories_final["Data"], errors='coerce'
+            if "data" in df_stories_final.columns:
+                df_stories_final["data"] = pd.to_datetime(
+                    df_stories_final["data"], errors='coerce'
                 ).dt.strftime("%d/%m/%Y %H:%M:%S")
                 
             logger.info(f"✅ {len(df_stories_final)} stories processados.")
@@ -399,22 +398,22 @@ def run_etl() -> bool:
             df_reels = df_posts[mask_reels].copy()
             
         reels_mapping = {
-            "workspace_name": "Cidade",
-            "published_at": "Data",
-            "profile_name": "Perfil",
-            "permalink": "Link",
-            "title": "Título",
-            "video_duration": "Duração (s)",
-            "plays": "Visualizações",
-            "total_watch_time": "Tempo Assistido (s)",
-            "avg_watch_time": "Tempo Médio (s)",
-            "reach": "Alcance",
-            "likes": "Likes",
-            "comments": "Comentários",
-            "shares": "Compartilhamentos",
-            "saves": "Salvos",
-            "engagement_rate": "Engajamento (%)",
-            "extraction_timestamp": "Atualizado em"
+            "workspace_name": "cidade",
+            "published_at": "data",
+            "profile_name": "perfil",
+            "permalink": "link",
+            "title": "titulo",
+            "video_duration": "duracao_seg",
+            "plays": "visualizacoes",
+            "total_watch_time": "tempo_assistido_seg",
+            "avg_watch_time": "tempo_medio_seg",
+            "reach": "alcance",
+            "likes": "likes",
+            "comments": "comentarios",
+            "shares": "compartilhamentos",
+            "saves": "salvos",
+            "engagement_rate": "engajamento",
+            "extraction_timestamp": "timestamp"
         }
         
         if not df_reels.empty:
@@ -457,28 +456,28 @@ def run_etl() -> bool:
             df_images = df_posts[mask_images].copy()
             
         common_mapping = {
-            "workspace_name": "Cidade",
-            "published_at": "Data",
-            "profile_name": "Perfil",
-            "permalink": "Link",
-            "title": "Legenda/Título",
-            "likes": "Likes",
-            "comments": "Comentários",
-            "shares": "Compartilhamentos",
-            "saves": "Salvos",
-            "reach": "Alcance",
-            "impressions": "Impressões",
-            "engagement_rate": "Engajamento (%)",
-            "extraction_timestamp": "Atualizado em"
+            "workspace_name": "cidade",
+            "published_at": "data",
+            "profile_name": "perfil",
+            "permalink": "link",
+            "title": "legenda_titulo",
+            "likes": "likes",
+            "comments": "comentarios",
+            "shares": "compartilhamentos",
+            "saves": "salvos",
+            "reach": "alcance",
+            "impressions": "impressoes",
+            "engagement_rate": "engajamento",
+            "extraction_timestamp": "timestamp"
         }
         
         if not df_images.empty:
             cols_img = [c for c in common_mapping.keys() if c in df_images.columns]
             df_images_final = df_images[cols_img].rename(columns=common_mapping)
              # Formata Data
-            if "Data" in df_images_final.columns:
-                df_images_final["Data"] = pd.to_datetime(df_images_final["Data"], errors='coerce').dt.strftime("%d/%m/%Y")
-            df_images_final = df_images_final.sort_values(by="Data", ascending=False)
+            if "data" in df_images_final.columns:
+                df_images_final["data"] = pd.to_datetime(df_images_final["data"], errors='coerce').dt.strftime("%d/%m/%Y")
+            df_images_final = df_images_final.sort_values(by="data", ascending=False)
             logger.info(f"✅ {len(df_images_final)} imagens processadas.")
         else:
             df_images_final = pd.DataFrame()
@@ -500,9 +499,9 @@ def run_etl() -> bool:
             cols_car = [c for c in common_mapping.keys() if c in df_carousels.columns]
             df_carousels_final = df_carousels[cols_car].rename(columns=common_mapping)
              # Formata Data
-            if "Data" in df_carousels_final.columns:
-                df_carousels_final["Data"] = pd.to_datetime(df_carousels_final["Data"], errors='coerce').dt.strftime("%d/%m/%Y")
-            df_carousels_final = df_carousels_final.sort_values(by="Data", ascending=False)
+            if "data" in df_carousels_final.columns:
+                df_carousels_final["data"] = pd.to_datetime(df_carousels_final["data"], errors='coerce').dt.strftime("%d/%m/%Y")
+            df_carousels_final = df_carousels_final.sort_values(by="data", ascending=False)
             logger.info(f"✅ {len(df_carousels_final)} carrosseis processados.")
         else:
             df_carousels_final = pd.DataFrame()
@@ -562,34 +561,34 @@ def run_etl() -> bool:
 
             # Selecão e Renomeação
             unified_mapping = {
-                "internal_id": "ID Post",
-                "published_at": "Data",
-                "workspace_name": "Cidade",
-                "profile_name": "Perfil",
-                "platform": "Rede Social",
-                "follower_count": "Seguidores",
-                "media_type_std": "Tipo de Mídia",
-                "permalink": "Link",
-                "title": "Legenda/Título",
-                "reach": "Alcance",
-                "reach_rate": "Taxa de Alcance (%)",
-                "impressions": "Impressões",
-                "engagement_rate": "Engajamento (%)",
-                "likes": "Likes",
-                "comments": "Comentários",
-                "saves": "Salvos",
-                "shares": "Compartilhamentos",
-                "extraction_timestamp": "Atualizado em"
+                "internal_id": "id_post",
+                "published_at": "data",
+                "workspace_name": "cidade",
+                "profile_name": "perfil",
+                "platform": "rede_social",
+                "follower_count": "seguidores",
+                "media_type_std": "tipo_midia",
+                "permalink": "link",
+                "title": "legenda_titulo",
+                "reach": "alcance",
+                "reach_rate": "taxa_alcance",
+                "impressions": "impressoes",
+                "engagement_rate": "engajamento",
+                "likes": "likes",
+                "comments": "comentarios",
+                "saves": "salvos",
+                "shares": "compartilhamentos",
+                "extraction_timestamp": "timestamp"
             }
             
             cols_uni = [c for c in unified_mapping.keys() if c in df_uni_raw.columns]
             df_unified = df_uni_raw[cols_uni].rename(columns=unified_mapping)
             
              # Formata Data e Ordena
-            if "Data" in df_unified.columns:
-                df_unified["Data"] = pd.to_datetime(df_unified["Data"], errors='coerce').dt.strftime("%d/%m/%Y")
+            if "data" in df_unified.columns:
+                df_unified["data"] = pd.to_datetime(df_unified["data"], errors='coerce').dt.strftime("%d/%m/%Y")
             
-            df_unified = df_unified.sort_values(by="Data", ascending=False)
+            df_unified = df_unified.sort_values(by="data", ascending=False)
             logger.info(f"✅ {len(df_unified)} linhas na Base Unificada.")
 
         # =================================================================
@@ -618,21 +617,21 @@ def run_etl() -> bool:
                 'impressions': 'sum'
             }).reset_index()
             
-            # Renomeia colunas para o padrão solicitado
+            # Renomeia colunas para o padrão snake_case
             df_highlights = df_highlights.rename(columns={
-                'workspace_name': 'Cidade',
-                'platform': 'Rede Social',
-                'internal_id': 'Contagem de Posts',
-                'engagement_rate': 'Engajamento Médio (%)',
-                'reach': 'Alcance Total',
-                'impressions': 'Impressões Totais'
+                'workspace_name': 'cidade',
+                'platform': 'rede_social',
+                'internal_id': 'contagem_posts',
+                'engagement_rate': 'engajamento_medio',
+                'reach': 'alcance_total',
+                'impressions': 'impressoes_totais'
             })
             
             # Formatação
-            df_highlights['Engajamento Médio (%)'] = df_highlights['Engajamento Médio (%)'].round(2)
+            df_highlights['engajamento_medio'] = df_highlights['engajamento_medio'].round(2)
             
             # Adiciona Timestamp
-            df_highlights['Atualizado em'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            df_highlights['timestamp'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
             logger.info(f"✅ {len(df_highlights)} linhas de monitoramento geradas.")
         else:
@@ -671,20 +670,20 @@ def run_etl() -> bool:
 
             # Renomeia
             df_history = df_history.rename(columns={
-                'published_at': 'Data',
-                'workspace_name': 'Cidade',
-                'profile_name': 'Perfil',
-                'platform': 'Rede',
-                'internal_id': 'Posts Publicados',
-                'reach': 'Alcance (Soma)',
-                'impressions': 'Impressões (Soma)',
-                'engagement_total': 'Engajamento (Soma)',
-                'plays': 'Plays (Soma)',
-                'total_watch_time': 'Tempo Assistido Total (Seg)'
+                'published_at': 'data',
+                'workspace_name': 'cidade',
+                'profile_name': 'perfil',
+                'platform': 'rede',
+                'internal_id': 'posts_publicados',
+                'reach': 'alcance_soma',
+                'impressions': 'impressoes_soma',
+                'engagement_total': 'engajamento_soma',
+                'plays': 'plays_soma',
+                'total_watch_time': 'tempo_assistido_total_seg'
             })
             
             # Ordena por data decrescente
-            df_history = df_history.sort_values(by='Data', ascending=False)
+            df_history = df_history.sort_values(by='data', ascending=False)
             logger.info(f"✅ {len(df_history)} linhas de Histórico Diário geradas.")
         else:
             df_history = pd.DataFrame()
@@ -695,15 +694,15 @@ def run_etl() -> bool:
         if not df_posts.empty:
             # Vamos pegar o Top 20 de cada métrica
             top_reach = df_posts.nlargest(20, 'reach')[['permalink', 'reach', 'title', 'profile_name', 'published_at', 'media_type']].copy()
-            top_reach['Rank_Tipo'] = 'Alcance'
+            top_reach['Rank_Tipo'] = 'alcance'
             top_reach = top_reach.rename(columns={'reach': 'Valor_Metrica'})
 
             top_engage = df_posts.nlargest(20, 'engagement_total')[['permalink', 'engagement_total', 'title', 'profile_name', 'published_at', 'media_type']].copy()
-            top_engage['Rank_Tipo'] = 'Engajamento'
+            top_engage['Rank_Tipo'] = 'engajamento'
             top_engage = top_engage.rename(columns={'engagement_total': 'Valor_Metrica'})
 
             top_impressions = df_posts.nlargest(20, 'impressions')[['permalink', 'impressions', 'title', 'profile_name', 'published_at', 'media_type']].copy()
-            top_impressions['Rank_Tipo'] = 'Impressões'
+            top_impressions['Rank_Tipo'] = 'impressoes'
             top_impressions = top_impressions.rename(columns={'impressions': 'Valor_Metrica'})
 
             # Concatena
@@ -713,11 +712,13 @@ def run_etl() -> bool:
             df_top_posts['Valor_Metrica'] = df_top_posts['Valor_Metrica'].astype(int)
             df_top_posts = df_top_posts[['Rank_Tipo', 'Valor_Metrica', 'profile_name', 'published_at', 'media_type', 'title', 'permalink']]
             df_top_posts = df_top_posts.rename(columns={
-                'profile_name': 'Perfil',
-                'published_at': 'Data',
-                'media_type': 'Tipo',
-                'title': 'Legenda/Titulo',
-                'permalink': 'Link'
+                'Rank_Tipo': 'rank_tipo',
+                'Valor_Metrica': 'valor_metrica',
+                'profile_name': 'perfil',
+                'published_at': 'data',
+                'media_type': 'formato',
+                'title': 'legenda_titulo',
+                'permalink': 'link'
             })
             logger.info(f"✅ {len(df_top_posts)} Top Posts gerados.")
         else:
@@ -735,9 +736,9 @@ def run_etl() -> bool:
             # Reordena: Data, Workspace, Perfil, Seguidores
             df_snapshot = df_snapshot[['Data_Snapshot', 'workspace_name', 'profile_name', 'followers']]
             df_snapshot = df_snapshot.rename(columns={
-                'workspace_name': 'Cidade',
-                'profile_name': 'Perfil',
-                'followers': 'Seguidores'
+                'workspace_name': 'cidade',
+                'profile_name': 'perfil',
+                'followers': 'seguidores'
             })
             logger.info(f"✅ {len(df_snapshot)} linhas de Snapshot de Seguidores preparadas.")
         else:
@@ -749,17 +750,16 @@ def run_etl() -> bool:
         logger.info("\n📤 ETAPA 3: CARGA NO GOOGLE SHEETS")
         logger.info(f"📑 Sheet ID: {config.google_sheet_id}")
         logger.info(f"📑 Aba Posts: {config.sheet_tab_name}")
-        logger.info(f"📑 Aba Perfis: Perfis")
-        logger.info(f"📑 Aba Stories: Stories_Detalhado")
-
-        logger.info(f"📑 Aba Hashtags: Hashtags_Analitico")
-        logger.info(f"📑 Aba Reels: Reels_Detalhado")
-        logger.info(f"📑 Aba Imagens: Imagens_Detalhado")
-        logger.info(f"📑 Aba Carro: Carrossel_Detalhado")
-        logger.info(f"📑 Aba Monitoramento: Redes_Monitoramento")
-        logger.info(f"📑 Aba Histórico: Historico_Diario_MyCreator")
-        logger.info(f"📑 Aba Top Posts: Top_Posts_MyCreator")
-        logger.info(f"📑 Aba Snapshot: Snapshot_Seguidores (APPEND)")
+        logger.info(f"📑 Aba Perfis: perfis")
+        logger.info(f"📑 Aba Stories: stories_detalhado")
+        logger.info(f"📑 Aba Hashtags: hashtags_analitico")
+        logger.info(f"📑 Aba Reels: reels_detalhado")
+        logger.info(f"📑 Aba Imagens: imagens_detalhado")
+        logger.info(f"📑 Aba Carro: carrossel_detalhado")
+        logger.info(f"📑 Aba Monitoramento: redes_monitoramento")
+        logger.info(f"📑 Aba Histórico: historico_diario_mycreator")
+        logger.info(f"📑 Aba Top Posts: top_posts_mycreator")
+        logger.info(f"📑 Aba Snapshot: snapshot_seguidores (APPEND)")
         logger.info(f"📝 Modo: {config.write_mode}")
         
         # Carga 1: Posts (Aba padrão)
@@ -772,82 +772,82 @@ def run_etl() -> bool:
         # Carga 2: Perfis (Nova aba)
         success_profiles = True
         if not df_final_profiles.empty:
-            logger.info(f"Uploading Perfis ({len(df_final_profiles)} linhas)...")
-            success_profiles = load_to_sheets(df_final_profiles, config, tab_name="Perfis")
+            logger.info(f"Uploading perfis ({len(df_final_profiles)} linhas)...")
+            success_profiles = load_to_sheets(df_final_profiles, config, tab_name="perfis")
             time.sleep(10)
 
 
         # Carga 6: Imagens (Aba Imagens_Detalhado)
         success_images = True
         if not df_images_final.empty:
-            logger.info(f"Uploading Imagens_Detalhado ({len(df_images_final)} linhas)...")
-            success_images = load_to_sheets(df_images_final, config, tab_name="Imagens_Detalhado")
+            logger.info(f"Uploading imagens_detalhado ({len(df_images_final)} linhas)...")
+            success_images = load_to_sheets(df_images_final, config, tab_name="imagens_detalhado")
             time.sleep(10)
 
         # Carga 7: Carrossel (Aba Carrossel_Detalhado)
         success_carousels = True
         if not df_carousels_final.empty:
-            logger.info(f"Uploading Carrossel_Detalhado ({len(df_carousels_final)} linhas)...")
-            success_carousels = load_to_sheets(df_carousels_final, config, tab_name="Carrossel_Detalhado")
+            logger.info(f"Uploading carrossel_detalhado ({len(df_carousels_final)} linhas)...")
+            success_carousels = load_to_sheets(df_carousels_final, config, tab_name="carrossel_detalhado")
             time.sleep(10)
 
         # Carga 8: Monitoramento (Aba Redes_Monitoramento)
         success_highlights = True
         if not df_highlights.empty:
-            logger.info(f"Uploading Redes_Monitoramento ({len(df_highlights)} linhas)...")
-            success_highlights = load_to_sheets(df_highlights, config, tab_name="Redes_Monitoramento")
+            logger.info(f"Uploading redes_monitoramento ({len(df_highlights)} linhas)...")
+            success_highlights = load_to_sheets(df_highlights, config, tab_name="redes_monitoramento")
             time.sleep(10)
             
         # Carga 3: Hashtags (Nova aba)
         success_hashtags = True
         if not df_hashtags_final.empty:
-            logger.info(f"Uploading Hashtags_Analitico ({len(df_hashtags_final)} linhas)...")
-            success_hashtags = load_to_sheets(df_hashtags_final, config, tab_name="Hashtags_Analitico")
+            logger.info(f"Uploading hashtags_analitico ({len(df_hashtags_final)} linhas)...")
+            success_hashtags = load_to_sheets(df_hashtags_final, config, tab_name="hashtags_analitico")
             time.sleep(10)
 
         # Carga 4: Stories (Nova aba)
         success_stories = True
         if not df_stories_final.empty:
-            logger.info(f"Uploading Stories_Detalhado ({len(df_stories_final)} linhas)...")
-            success_stories = load_to_sheets(df_stories_final, config, tab_name="Stories_Detalhado")
+            logger.info(f"Uploading stories_detalhado ({len(df_stories_final)} linhas)...")
+            success_stories = load_to_sheets(df_stories_final, config, tab_name="stories_detalhado")
             time.sleep(10)
 
         # Carga 5: Reels (Nova aba)
         success_reels = True
         if not df_reels_final.empty:
-            logger.info(f"Uploading Reels_Detalhado ({len(df_reels_final)} linhas)...")
-            success_reels = load_to_sheets(df_reels_final, config, tab_name="Reels_Detalhado")
+            logger.info(f"Uploading reels_detalhado ({len(df_reels_final)} linhas)...")
+            success_reels = load_to_sheets(df_reels_final, config, tab_name="reels_detalhado")
             time.sleep(10)
 
         # Carga 9: Base Unificada (Aba Base_Looker_Unificada)
         success_unified = True
         if not df_unified.empty:
-            logger.info(f"Uploading Base_Looker_Unificada ({len(df_unified)} linhas)...")
-            success_unified = load_to_sheets(df_unified, config, tab_name="Base_Looker_Unificada")
+            logger.info(f"Uploading base_looker_unificada ({len(df_unified)} linhas)...")
+            success_unified = load_to_sheets(df_unified, config, tab_name="base_looker_unificada")
             time.sleep(10)
             
         # Carga 10: Histórico Diário
         success_history = True
         if not df_history.empty:
-            logger.info(f"Uploading Historico_Diario_MyCreator ({len(df_history)} linhas)...")
-            success_history = load_to_sheets(df_history, config, tab_name="Historico_Diario_MyCreator")
+            logger.info(f"Uploading historico_diario_mycreator ({len(df_history)} linhas)...")
+            success_history = load_to_sheets(df_history, config, tab_name="historico_diario_mycreator")
             time.sleep(10)
 
         # Carga 11: Top Posts
         success_top = True
         if not df_top_posts.empty:
-            logger.info(f"Uploading Top_Posts_MyCreator ({len(df_top_posts)} linhas)...")
-            success_top = load_to_sheets(df_top_posts, config, tab_name="Top_Posts_MyCreator")
+            logger.info(f"Uploading top_posts_mycreator ({len(df_top_posts)} linhas)...")
+            success_top = load_to_sheets(df_top_posts, config, tab_name="top_posts_mycreator")
             time.sleep(10)
             
         # Carga 12: Snapshot Seguidores (APPEND FORÇADO)
         success_snapshot = True
         if not df_snapshot.empty:
-            logger.info(f"Uploading Snapshot_Seguidores ({len(df_snapshot)} linhas) [APPEND]...")
+            logger.info(f"Uploading snapshot_seguidores ({len(df_snapshot)} linhas) [APPEND]...")
             # Cria config temporária para forçar append
             from dataclasses import replace
             config_append = replace(config, write_mode="append")
-            success_snapshot = load_to_sheets(df_snapshot, config_append, tab_name="Snapshot_Seguidores")
+            success_snapshot = load_to_sheets(df_snapshot, config_append, tab_name="snapshot_seguidores")
             time.sleep(5)
         
         if not success_posts or not success_profiles or not success_hashtags or not success_stories or not success_reels or not success_images or not success_carousels or not success_highlights or not success_unified or not success_history or not success_top or not success_snapshot:

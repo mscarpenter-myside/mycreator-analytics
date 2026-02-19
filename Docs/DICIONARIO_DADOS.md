@@ -40,15 +40,15 @@ graph TD
 
 | Coluna | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **Cidade** | Nome do Workspace. | `Florianópolis` |
-| **Perfil** | Nome da conta. | `myside.imoveis` |
-| **Seguidores (Total)** | Total de seguidores da conta (API Geral). | `15400` |
-| **Posts MyCreator** | Qtd. posts publicados pela ferramenta. | `12` |
-| **Engajamento Médio MyCreator (%)** | `(Interações MyCreator / Alcance MyCreator)`. | `4.5` |
-| **Taxa de Alcance MyCreator (%)** | `((Alcance Médio / Seguidores) * 100)`. | `15.2` |
-| **Alcance Acumulado MyCreator** | Soma do alcance dos posts da ferramenta. | `45000` |
-| **Interações Totais MyCreator** | Soma de likes, comments, shares, saves. | `2300` |
-| **Atualizado em** | Data da extração. | `13/02/2026 02:00:00` |
+| **cidade** | Nome do Workspace. | `Florianópolis` |
+| **perfil** | Nome da conta. | `myside.imoveis` |
+| **seguidores_total** | Total de seguidores da conta (API Geral). | `15400` |
+| **posts_mycreator** | Qtd. posts publicados pela ferramenta. | `12` |
+| **engajamento_medio_mycreator** | `(Interações MyCreator / Alcance MyCreator)`. | `4.5` |
+| **taxa_alcance_mycreator** | `((Alcance Médio / Seguidores) * 100)`. | `15.2` |
+| **alcance_acumulado_mycreator** | Soma do alcance dos posts da ferramenta. | `45000` |
+| **interacoes_totais_mycreator** | Soma de likes, comments, shares, saves. | `2300` |
+| **timestamp** | Data da extração. | `13/02/2026 02:00:00` |
 
 ---
 
@@ -57,27 +57,27 @@ graph TD
 
 | Coluna | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **Cidade** | Nome do Workspace de origem. | `Florianópolis`, `Curitiba` |
-| **Data de Publicação** | Data e hora exata da publicação. | `12/02/2026 14:30:00` |
-| **Rede Social** | Plataforma onde foi postado. | `Instagram`, `Facebook` |
-| **Perfil** | Nome da conta (@arroba ou Nome). | `@myside.imoveis` |
-| **Seguidores** | *Snapshot* de seguidores no dia da extração. | `15400` |
-| **Tipo** | Formato geral do conteúdo. | `image`, `video`, `carousel` |
-| **Tipo de Mídia** | Formato específico técnico. | `REELS`, `FEED_IMAGE` |
-| **Título** | Primeira linha ou título do post. | `Confira as novidades...` |
-| **Legenda** | Texto completo do post. | `Confira as novidades... #imoveis` |
-| **Likes** | Quantidade de curtidas. | `120` |
-| **Comentários** | Quantidade de comentários. | `5` |
-| **Salvos** | Quantidade de salvamentos. | `12` |
-| **Compartilhamentos** | Quantidade de envios. | `8` |
-| **Alcance** | Contas únicas alcançadas. | `2500` |
-| **Impressões** | Total de visualizações. | `3000` |
-| **Plays** | Visualizações de vídeo (Reels). | `5000` |
-| **Taxa de Alcance (%)** | `(Alcance / Seguidores) * 100`. | `12.5` |
-| **Engajamento (%)** | `(Likes + Coments + Saves) / Alcance`. | `4.5` |
-| **ID Post** | Identificador único do post (excl. ID). | `1784...` |
-| **Link Permanente** | URL direta para o post. | `https://instagram.com/p/...` |
-| **Atualizado em** | Data da última leitura pelo robô. | `13/02/2026 02:00:00` |
+| **cidade** | Nome do Workspace de origem. | `Florianópolis`, `Curitiba` |
+| **data_publicacao** | Data e hora exata da publicação. | `12/02/2026 14:30:00` |
+| **rede_social** | Plataforma onde foi postado. | `Instagram`, `Facebook` |
+| **perfil** | Nome da conta (@arroba ou Nome). | `@myside.imoveis` |
+| **seguidores** | *Snapshot* de seguidores no dia da extração. | `15400` |
+| **formato** | Formato geral do conteúdo. | `image`, `video`, `carousel` |
+| **tipo_midia** | Formato específico técnico. | `REELS`, `FEED_IMAGE` |
+| **titulo** | Primeira linha ou título do post. | `Confira as novidades...` |
+| **legenda** | Texto completo do post. | `Confira as novidades... #imoveis` |
+| **curtidas** | Quantidade de curtidas. | `120` |
+| **comentarios** | Quantidade de comentários. | `5` |
+| **salvos** | Quantidade de salvamentos. | `12` |
+| **compartilhamentos** | Quantidade de envios. | `8` |
+| **alcance** | Contas únicas alcançadas. | `2500` |
+| **impressoes** | Total de visualizações. | `3000` |
+| **visualizacoes** | Visualizações de vídeo (Reels). | `5000` |
+| **taxa_alcance** | `(Alcance / Seguidores) * 100`. | `12.5` |
+| **engajamento** | `(Likes + Coments + Saves) / Alcance`. | `4.5` |
+| **id_instagram** | Identificador único do post (excl. ID). | `1784...` |
+| **link** | URL direta para o post. | `https://instagram.com/p/...` |
+| **timestamp** | Data da última leitura pelo robô. | `13/02/2026 02:00:00` |
 
 ---
 
@@ -87,19 +87,19 @@ graph TD
 
 | Coluna | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **Cidade** | Nome do Workspace. | `Florianópolis` |
-| **Data** | Data e hora da publicação. | `12/02/2026 09:00:00` |
-| **Perfil** | Conta que publicou. | `@myside.imoveis` |
-| **Link** | Link para o story (se válido). | `https://instagram.com/stories/...` |
-| **Preview** | URL da imagem do story (Capa). | `https://cdn.instagram...jpg` |
-| **ID Story** | Identificador único. | `1798...` |
-| **Alcance** | Contas alcançadas (Se disponível). | `0` (API Limitada) |
-| **Impressões** | Visualizações totais (Se disponível). | `0` (API Limitada) |
-| **Saídas** | Toques para sair (Exit). | `0` |
-| **Respostas** | Directs enviados pelo story. | `0` |
-| **Avançar** | Taps para pular (Forward). | `0` |
-| **Voltar** | Taps para voltar (Back). | `0` |
-| **Atualizado em** | Data da extração. | `13/02/2026 02:00:00` |
+| **cidade** | Nome do Workspace. | `Florianópolis` |
+| **data** | Data e hora da publicação. | `12/02/2026 09:00:00` |
+| **perfil** | Conta que publicou. | `@myside.imoveis` |
+| **link** | Link para o story (se válido). | `https://instagram.com/stories/...` |
+| **preview** | URL da imagem do story (Capa). | `https://cdn.instagram...jpg` |
+| **id_story** | Identificador único. | `1798...` |
+| **alcance** | Contas alcançadas (Se disponível). | `0` (API Limitada) |
+| **impressoes** | Visualizações totais (Se disponível). | `0` (API Limitada) |
+| **saidas** | Toques para sair (Exit). | `0` |
+| **respostas** | Directs enviados pelo story. | `0` |
+| **taps_avancar** | Taps para pular (Forward). | `0` |
+| **taps_voltar** | Taps para voltar (Back). | `0` |
+| **timestamp** | Data da extração. | `13/02/2026 02:00:00` |
 
 ---
 
@@ -109,13 +109,13 @@ graph TD
 
 | Coluna | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **Hashtag** | A tag em si (sem o #). | `imoveis` |
-| **Qtd Usos** | Quantos posts usaram esta tag. | `15` |
-| **Engajamento Total** | Soma do engajamento desses posts. | `850` |
-| **Alcance Acumulado** | Soma do alcance desses posts. | `15000` |
-| **Impressões Acumuladas** | Soma das impressões. | `20000` |
-| **Total Likes** | Soma de likes. | `800` |
-| **Total Comentários** | Soma de comentários. | `50` |
+| **hashtag** | A tag em si (sem o #). | `imoveis` |
+| **qtd_usos** | Quantos posts usaram esta tag. | `15` |
+| **engajamento_total** | Soma do engajamento desses posts. | `850` |
+| **alcance_acumulado** | Soma do alcance desses posts. | `15000` |
+| **impressoes_acumuladas** | Soma das impressões. | `20000` |
+| **total_likes** | Soma de likes. | `800` |
+| **total_comentarios** | Soma de comentários. | `50` |
 
 ---
 
@@ -124,14 +124,14 @@ graph TD
 
 | Coluna | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **Cidade** | Workspace. | `Florianópolis` |
-| **Perfil** | Nome da Conta. | `Lilian Jácomo` |
-| **Seguidores (Total)** | Total atual de seguidores. | `1250` |
-| **Posts MyCreator** | Posts processados pela ferramenta. | `45` |
-| **Engajamento Médio MyCreator (%)** | `(Interações / Alcance) * 100`. | `5.2` |
-| **Alcance Acumulado MyCreator** | Soma do alcance (Posts ferramenta). | `15000` |
-| **Interações Totais MyCreator** | Soma de interações (Posts ferramenta). | `1200` |
-| **Atualizado em** | Data da extração. | `13/02/2026 02:00:00` |
+| **cidade** | Workspace. | `Florianópolis` |
+| **perfil** | Nome da Conta. | `Lilian Jácomo` |
+| **seguidores_total** | Total atual de seguidores. | `1250` |
+| **posts_mycreator** | Posts processados pela ferramenta. | `45` |
+| **engajamento_medio_mycreator** | `(Interações / Alcance) * 100`. | `5.2` |
+| **alcance_acumulado_mycreator** | Soma do alcance (Posts ferramenta). | `15000` |
+| **interacoes_totais_mycreator** | Soma de interações (Posts ferramenta). | `1200` |
+| **timestamp** | Data da extração. | `13/02/2026 02:00:00` |
 
 ---
 
@@ -141,22 +141,22 @@ graph TD
 
 | Coluna | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **Cidade** | Workspace. | `Florianópolis` |
-| **Data** | Data da publicação. | `12/02/2026` |
-| **Perfil** | Nome da conta. | `@myside.imoveis` |
-| **Título** | Título ou início da legenda. | `Tour pelo ap...` |
-| **Duração (s)** | Duração do vídeo em segundos. | `45.5` |
-| **Tempo Assistido (s)** | Tempo total assistido por todos os usuários. | `15000` |
-| **Tempo Médio (s)** | Média de tempo assistido por view. | `12.5` |
-| **Plays** | Número de visualizações. | `2300` |
-| **Alcance** | Contas alcançadas. | `1800` |
-| **Engajamento (%)** | Taxa de engajamento do vídeo. | `5.5` |
-| **Likes** | Total de curtidas. | `150` |
-| **Comentários** | Total de comentários. | `20` |
-| **Salvos** | Total de salvamentos. | `45` |
-| **Compartilhamentos** | Total de envios. | `30` |
-| **Link** | URL do vídeo. | `https://instagram...` |
-| **Atualizado em** | Data da extração. | `13/02/2026 02:00:00` |
+| **cidade** | Workspace. | `Florianópolis` |
+| **data** | Data da publicação. | `12/02/2026` |
+| **perfil** | Nome da conta. | `@myside.imoveis` |
+| **titulo** | Título ou início da legenda. | `Tour pelo ap...` |
+| **duracao_seg** | Duração do vídeo em segundos. | `45.5` |
+| **tempo_assistido_seg** | Tempo total assistido por todos os usuários. | `15000` |
+| **tempo_medio_seg** | Média de tempo assistido por view. | `12.5` |
+| **visualizacoes** | Número de visualizações. | `2300` |
+| **alcance** | Contas alcançadas. | `1800` |
+| **engajamento** | Taxa de engajamento do vídeo. | `5.5` |
+| **likes** | Total de curtidas. | `150` |
+| **comentarios** | Total de comentários. | `20` |
+| **salvos** | Total de salvamentos. | `45` |
+| **compartilhamentos** | Total de envios. | `30` |
+| **link** | URL do vídeo. | `https://instagram...` |
+| **timestamp** | Data da extração. | `13/02/2026 02:00:00` |
 
 ---
 
@@ -186,13 +186,13 @@ graph TD
 
 | Coluna | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **Cidade** | Workspace. | `Florianópolis` |
-| **Rede Social** | Plataforma. | `Instagram` |
-| **Contagem de Posts** | Total de publicações extraídas. | `45` |
-| **Engajamento Médio (%)** | Média da taxa de engajamento do período. | `4.5` |
-| **Alcance Total** | Soma do alcance de todos os posts. | `150400` |
-| **Impressões Totais** | Soma das impressões de todos os posts. | `200000` |
-| **Atualizado em** | Data da última atualização. | `13/02/2026 14:30:00` |
+| **cidade** | Workspace. | `Florianópolis` |
+| **rede_social** | Plataforma. | `Instagram` |
+| **contagem_posts** | Total de publicações extraídas. | `45` |
+| **engajamento_medio** | Média da taxa de engajamento do período. | `4.5` |
+| **alcance_total** | Soma do alcance de todos os posts. | `150400` |
+| **impressoes_totais** | Soma das impressões de todos os posts. | `200000` |
+| **timestamp** | Data da última atualização. | `13/02/2026 14:30:00` |
 
 ---
 
@@ -202,24 +202,24 @@ graph TD
 
 | Coluna | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **ID Post** | Identificador único. | `33772895...` |
-| **Data** | Data de publicação. | `13/02/2026` |
-| **Cidade** | Workspace de origem. | `Florianópolis` |
-| **Perfil** | Nome do perfil. | `@myside.imoveis` |
-| **Rede Social** | Plataforma. | `Instagram` |
-| **Seguidores** | Total de seguidores do perfil. | `15200` |
-| **Tipo de Mídia** | `Imagem`, `Carrossel` ou `Reels`. | `Reels` |
-| **Link** | Permalink. | `https://...` |
-| **Legenda/Título** | Texto do post. | `Confira este imóvel...` |
-| **Alcance** | Alcance total. | `1500` |
-| **Taxa de Alcance (%)** | `(Alcance / Seguidores) * 100`. | `10.5` |
-| **Impressões** | Impressões totais. | `2000` |
-| **Engajamento (%)** | Taxa de engajamento oficial. | `5.2` |
-| **Likes** | Total de curtidas. | `120` |
-| **Comentários** | Total de comentários. | `5` |
-| **Salvos** | Total de salvamentos. | `10` |
-| **Compartilhamentos** | Total de compartilhamentos. | `22` |
-| **Atualizado em** | Data da extração. | `13/02/2026 15:00:00` |
+| **id_post** | Identificador único. | `33772895...` |
+| **data** | Data de publicação. | `13/02/2026` |
+| **cidade** | Workspace de origem. | `Florianópolis` |
+| **perfil** | Nome do perfil. | `@myside.imoveis` |
+| **rede_social** | Plataforma. | `Instagram` |
+| **seguidores** | Total de seguidores do perfil. | `15200` |
+| **tipo_midia** | `Imagem`, `Carrossel` ou `Reels`. | `Reels` |
+| **link** | Permalink. | `https://...` |
+| **legenda_titulo** | Texto do post. | `Confira este imóvel...` |
+| **alcance** | Alcance total. | `1500` |
+| **taxa_alcance** | `(Alcance / Seguidores) * 100`. | `10.5` |
+| **impressoes** | Impressões totais. | `2000` |
+| **engajamento** | Taxa de engajamento oficial. | `5.2` |
+| **likes** | Total de curtidas. | `120` |
+| **comentarios** | Total de comentários. | `5` |
+| **salvos** | Total de salvamentos. | `10` |
+| **compartilhamentos** | Total de compartilhamentos. | `22` |
+| **timestamp** | Data da extração. | `13/02/2026 15:00:00` |
 
 ---
 
@@ -248,16 +248,16 @@ graph TD
 
 | Coluna | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **Data** | Data da publicação. | `2025-02-15` |
-| **Cidade** | Workspace. | `Florianópolis` |
-| **Perfil** | Nome do perfil. | `myside.imoveis` |
-| **Rede** | Rede Social (Instagram/Facebook). | `Instagram` |
-| **Posts Publicados** | Quantidade de posts no dia. | `3` |
-| **Alcance (Soma)** | Soma do alcance de todos os posts do dia. | `15000` |
-| **Impressões (Soma)** | Soma das impressões. | `18000` |
-| **Engajamento (Soma)** | Soma de todas interações. | `500` |
-| **Plays (Soma)** | Total de visualizações de vídeo/Reels. | `20000` |
-| **Tempo Assistido Total (Seg)** | Soma do tempo assistido (Reels). | `150000` |
+| **data** | Data da publicação. | `2025-02-15` |
+| **cidade** | Workspace. | `Florianópolis` |
+| **perfil** | Nome do perfil. | `myside.imoveis` |
+| **rede** | Rede Social (Instagram/Facebook). | `Instagram` |
+| **posts_publicados** | Quantidade de posts no dia. | `3` |
+| **alcance_soma** | Soma do alcance de todos os posts do dia. | `15000` |
+| **impressoes_soma** | Soma das impressões. | `18000` |
+| **engajamento_soma** | Soma de todas interações. | `500` |
+| **plays_soma** | Total de visualizações de vídeo/Reels. | `20000` |
+| **tempo_assistido_total_seg** | Soma do tempo assistido (Reels). | `150000` |
 
 ---
 
@@ -267,13 +267,13 @@ graph TD
 
 | Coluna | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **Rank_Tipo** | Categoria do Ranking (Alcance, Engajamento, Impressões). | `Alcance` |
-| **Valor_Metrica** | Valor da métrica correspondente. | `50000` |
-| **Perfil** | Perfil dono do post. | `myside.imoveis` |
-| **Data** | Data de publicação. | `2025-02-10` |
-| **Tipo** | Tipo de mídia (IMAGE, VIDEO, CAROUSEL, REELS). | `REELS` |
-| **Legenda/Titulo** | Título ou início da legenda do post. | `Confira este imóvel...` |
-| **Link** | Link para o post. | `https://instagram...` |
+| **rank_tipo** | Categoria do Ranking (alcance, engajamento, impressoes). | `alcance` |
+| **valor_metrica** | Valor da métrica correspondente. | `50000` |
+| **perfil** | Perfil dono do post. | `myside.imoveis` |
+| **data** | Data de publicação. | `2025-02-10` |
+| **formato** | Tipo de mídia (IMAGE, VIDEO, CAROUSEL, REELS). | `REELS` |
+| **legenda_titulo** | Título ou início da legenda do post. | `Confira este imóvel...` |
+| **link** | Link para o post. | `https://instagram...` |
 
 ---
 
@@ -283,9 +283,9 @@ graph TD
 
 | Coluna | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **Data_Snapshot** | Data da coleta do dado. | `2026-02-18` |
-| **Cidade** | Workspace. | `Goiânia` |
-| **Perfil** | Nome do perfil. | `myside.goiania` |
-| **Seguidores** | Contagem total de seguidores no dia. | `12500` |
+| **data_snapshot** | Data da coleta do dado. | `2026-02-18` |
+| **cidade** | Workspace. | `Goiânia` |
+| **perfil** | Nome do perfil. | `myside.goiania` |
+| **seguidores** | Contagem total de seguidores no dia. | `12500` |
 
 
