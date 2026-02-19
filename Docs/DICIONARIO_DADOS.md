@@ -73,6 +73,7 @@ graph TD
 | **Alcance** | Contas únicas alcançadas. | `2500` |
 | **Impressões** | Total de visualizações. | `3000` |
 | **Plays** | Visualizações de vídeo (Reels). | `5000` |
+| **Taxa de Alcance (%)** | `(Alcance / Seguidores) * 100`. | `12.5` |
 | **Engajamento (%)** | `(Likes + Coments + Saves) / Alcance`. | `4.5` |
 | **ID Post** | Identificador único do post (excl. ID). | `1784...` |
 | **Link Permanente** | URL direta para o post. | `https://instagram.com/p/...` |

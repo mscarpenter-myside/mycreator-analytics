@@ -120,6 +120,7 @@ def run_etl() -> bool:
             
             # PERFORMANCE
             "reach": "Alcance",
+            "reach_rate": "Taxa de Alcance (%)",
             "impressions": "Impressões",
             "plays": "Plays",
             "total_watch_time": "Tempo Assistido (seg)",
@@ -134,6 +135,13 @@ def run_etl() -> bool:
         }
         
         # Seleciona e renomeia colunas existentes (preserva ordem do dict)
+        # Calcula Reach Rate antes de exportar
+        if not df_posts.empty and "reach" in df_posts.columns and "follower_count" in df_posts.columns:
+            df_posts["reach_rate"] = df_posts.apply(
+                lambda x: round((x["reach"] / x["follower_count"] * 100), 2) if x["follower_count"] > 0 else 0, 
+                axis=1
+            )
+        
         columns_to_export = [col for col in column_mapping.keys() if col in df_posts.columns]
         df_final = df_posts[columns_to_export].rename(columns=column_mapping)
         
