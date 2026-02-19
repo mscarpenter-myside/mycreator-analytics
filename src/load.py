@@ -154,21 +154,38 @@ class GoogleSheetsLoader:
         """
         Converte DataFrame para formato do Google Sheets.
         
+        Preserva tipos numéricos (int, float) para que o Google Sheets
+        os interprete corretamente. Apenas converte NaN e tipos não
+        serializáveis para string.
+        
         Args:
             df: DataFrame pandas
             
         Returns:
             list[list]: Dados em formato de lista de listas
         """
+        import numpy as np
+        
         # Substitui NaN por string vazia
         df = df.fillna("")
         
-        # Converte valores para tipos serializáveis
-        df = df.astype(str)
-        
-        # Header + dados
+        # Header
         header = df.columns.tolist()
-        rows = df.values.tolist()
+        
+        # Converte cada valor preservando tipos numéricos
+        rows = []
+        for _, row in df.iterrows():
+            clean_row = []
+            for val in row:
+                if isinstance(val, (np.integer,)):
+                    clean_row.append(int(val))
+                elif isinstance(val, (np.floating,)):
+                    clean_row.append(float(val))
+                elif isinstance(val, (int, float)):
+                    clean_row.append(val)
+                else:
+                    clean_row.append(str(val) if val != "" else "")
+            rows.append(clean_row)
         
         return [header] + rows
     
