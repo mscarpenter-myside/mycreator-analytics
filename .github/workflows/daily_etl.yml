@@ -42,9 +42,12 @@ jobs:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           
           # Configurações
-          SHEET_TAB_NAME: "Dados_Brutos"
+          SHEET_TAB_NAME: "dados_brutos"
           WRITE_MODE: "overwrite"
           POSTS_LIMIT: "50"
           DEBUG_MODE: "false"
         run: |
           python run_etl.py
+
+      - name: 📊 Disparar ETL no Google Sheets
+        run: curl -L "https://script.google.com/macros/s/AKfycbytA2FiFRROcWKaeKGOye4Teubm6JJ3xUak5L_cOLccEPmnryGhjBA6vCa56xZsilIQMw/exec"
