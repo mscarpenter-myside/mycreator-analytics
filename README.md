@@ -70,10 +70,11 @@ O workflow `daily_etl.yml` roda diariamente às 08:00 BRT.
 
 ## 📊 Estrutura de Dados
 
-Consulte o arquivo [`DOC_TECNICA.md`](.Docs/DOC_TECNICA.md) para a documentação técnica completa de cada métrica e endpoint utilizado.
+Consulte o arquivo [`DOC_TECNICA.md`](Docs/DOC_TECNICA.md) para a documentação técnica completa de cada métrica e endpoint utilizado.
 
 ---
 
 **Engenharia de Conteúdo & Automação**
+
 
 
