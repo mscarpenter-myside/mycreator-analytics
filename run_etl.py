@@ -65,20 +65,12 @@ def run_etl() -> bool:
         if not all_posts:
             logger.warning("⚠️ Nenhum post extraído de nenhum workspace.")
         
-        # Extrai perfis (NOVA FUNCIONALIDADE)
-        logger.info("\n📡 ETAPA 1.2: EXTRAÇÃO DE PERFIS")
-        all_profiles = extractor.extract_profiles()
-
-        # Extrai Stories (NOVA FUNCIONALIDADE)
-        logger.info("\n📡 ETAPA 1.3: EXTRAÇÃO DE STORIES")
-        all_stories = extractor.fetch_stories_list()
-        
-        # Extrai Crescimento de Seguidores (audience_growth)
+# Extrai Crescimento de Seguidores (audience_growth)
         logger.info("\n📡 ETAPA 1.4: EXTRAÇÃO DE CRESCIMENTO DE SEGUIDORES")
         audience_growth_data = extractor.extract_audience_growth()
         
-        if not all_posts and not all_profiles and not all_stories:
-            logger.warning("⚠️ Nada extraído (nem posts, nem perfis, nem stories).")
+        if not all_posts and not audience_growth_data:
+            logger.warning("⚠️ Nada extraído (nem posts, nem crescimento de seguidores).")
             return False
         
         # =====================================================================
@@ -90,13 +82,7 @@ def run_etl() -> bool:
         records_posts = [asdict(post) for post in all_posts]
         df_posts = pd.DataFrame(records_posts)
         
-        # Converte lista de dataclass para DataFrame (Perfis)
-        records_profiles = [asdict(prof) for prof in all_profiles]
-        df_profiles = pd.DataFrame(records_profiles)
 
-        # Converte lista de dataclass para DataFrame (Stories)
-        records_stories = [asdict(story) for story in all_stories]
-        df_stories = pd.DataFrame(records_stories)
 
         # Converte lista de dicts para DataFrame (Crescimento Seguidores)
         df_audience_growth = pd.DataFrame(audience_growth_data) if audience_growth_data else pd.DataFrame()
@@ -165,112 +151,6 @@ def run_etl() -> bool:
         columns_to_export = [col for col in column_mapping.keys() if col in df_posts.columns]
         df_final = df_posts[columns_to_export].rename(columns=column_mapping)
         
-        # =================================================================
-        # 4. Transforma Profiles em DataFrame (Base de Seguidores)
-        records_profiles = [asdict(prof) for prof in all_profiles]
-        df_profiles_raw = pd.DataFrame(records_profiles)
-        
-        if df_profiles_raw.empty:
-            logger.warning("⚠️ Nenhum perfil extraído. Pulando aba perfis.")
-            df_final_profiles = pd.DataFrame()
-        else:
-            # =========================================================================
-            # CÁLCULO DE "MYCREATOR ANALYTICS" (Agregação Real)
-            # =========================================================================
-            # Em vez de usar dados gerais do Instagram, calculamos a performance DO MYCREATOR
-            # com base nos posts extraídos (que são filtrados pela ferramenta).
-            
-            if not df_posts.empty:
-                # Agrupa posts por Perfil (Nome da conta)
-                # Nota: Usamos 'profile_name' como chave. Ideal seria ID, mas o nome é mais legível na planilha.
-                metrics_agg = df_posts.groupby('profile_name').agg({
-                    'internal_id': 'count',      # Qtd Posts MyCreator
-                    'likes': 'sum',
-                    'comments': 'sum',
-                    'saves': 'sum',
-                    'shares': 'sum',
-                    'reach': 'sum',              # Alcance Acumulado MyCreator
-                    'impressions': 'sum'
-                }).reset_index()
-                
-                # Renomeia colunas para merge
-                metrics_agg.rename(columns={
-                    'internal_id': 'posts_mycreator',
-                    'reach': 'reach_mycreator',
-                    'impressions': 'impressions_mycreator'
-                }, inplace=True)
-                
-                # Calcula Engajamento Total MyCreator
-                metrics_agg['engagement_mycreator'] = (
-                    metrics_agg['likes'] + 
-                    metrics_agg['comments'] + 
-                    metrics_agg['saves'] + 
-                    metrics_agg['shares']
-                )
-                
-                # Faz o Merge com a base de seguidores (df_profiles_raw)
-                # Left join para manter perfis que existem mas não postaram nada via ferramenta ainda
-                df_profiles_final = pd.merge(
-                    df_profiles_raw, 
-                    metrics_agg, 
-                    on='profile_name', 
-                    how='left'
-                )
-                
-                # Preenche NaNs com 0 (para quem não teve posts)
-                # Preenche NaNs com 0 (para quem não teve posts)
-                cols_to_fill = ['posts_mycreator', 'reach_mycreator', 'impressions_mycreator', 'engagement_mycreator']
-                df_profiles_final[cols_to_fill] = df_profiles_final[cols_to_fill].fillna(0)
-                
-                # Garante que são inteiros (remove .0)
-                for col in cols_to_fill:
-                    df_profiles_final[col] = df_profiles_final[col].astype(int)
-                
-                # Recalcula Taxa de Engajamento MyCreator (%)
-                # Fórmula: (Engajamento Total / Alcance Acumulado) * 100
-                # Evita divisão por zero
-                df_profiles_final['engagement_rate_mycreator'] = df_profiles_final.apply(
-                    lambda row: round((row['engagement_mycreator'] / row['reach_mycreator'] * 100), 2) 
-                    if row['reach_mycreator'] > 0 else 0.0, 
-                    axis=1
-                )
-
-                # Calcula Taxa de Alcance Média (%)
-                # Fórmula: ((Alcance Acumulado / Posts) / Seguidores) * 100
-                def calc_reach_rate(row):
-                    if row['posts_mycreator'] == 0 or row['followers'] == 0:
-                        return 0.0
-                    
-                    avg_reach = row['reach_mycreator'] / row['posts_mycreator']
-                    return round((avg_reach / row['followers']) * 100, 2)
-
-                df_profiles_final['reach_rate_mycreator'] = df_profiles_final.apply(calc_reach_rate, axis=1)
-                
-            else:
-                # Se não tem posts, tudo é zero
-                df_profiles_final = df_profiles_raw.copy()
-                df_profiles_final['posts_mycreator'] = 0
-                df_profiles_final['engagement_mycreator'] = 0
-                df_profiles_final['reach_mycreator'] = 0
-                df_profiles_final['engagement_rate_mycreator'] = 0.0
-                df_profiles_final['reach_rate_mycreator'] = 0.0
-
-        # 5. Seleção e Renomeação de Colunas para aba Perfis
-        # Mapeamos as novas métricas calculadas em vez das genéricas
-        profile_mapping = {
-            "workspace_name": "cidade",
-            "profile_name": "perfil",
-            "followers": "seguidores_total",
-            "posts_mycreator": "posts_mycreator",
-            "engagement_rate_mycreator": "engajamento_medio_mycreator",
-            "reach_rate_mycreator": "taxa_alcance_mycreator",
-            "reach_mycreator": "alcance_acumulado_mycreator",
-            "engagement_mycreator": "interacoes_totais_mycreator",
-            "extraction_timestamp": "timestamp"
-        }
-
-        columns_profiles_export = [col for col in profile_mapping.keys() if col in df_profiles_final.columns]
-        df_final_profiles = df_profiles_final[columns_profiles_export].rename(columns=profile_mapping)
         
         # Formata Data de Publicação apenas como data (DD/MM/YYYY)
         if "data_publicacao" in df_final.columns:
@@ -368,249 +248,6 @@ def run_etl() -> bool:
         else:
             df_hashtags_final = pd.DataFrame()
 
-        # =================================================================
-        # 7. Processamento de Stories (NOVO)
-        # =================================================================
-        logger.info("\n📸 PROCESSANDO STORIES...")
-        
-        story_mapping = {
-            "workspace_name": "cidade",
-            "published_at": "data",
-            "profile_name": "perfil",
-            "permalink": "link",
-            "media_url": "preview",
-            "external_id": "id_story",
-            "reach": "alcance",
-            "impressions": "impressoes",
-            "exits": "saidas",
-            "replies": "respostas",
-            "taps_forward": "taps_avancar",
-            "taps_back": "taps_voltar",
-            "extraction_timestamp": "timestamp"
-        }
-        
-        if not df_stories.empty:
-            cols_export_stories = [c for c in story_mapping.keys() if c in df_stories.columns]
-            df_stories_final = df_stories[cols_export_stories].rename(columns=story_mapping)
-            
-            # Formata Data
-            if "data" in df_stories_final.columns:
-                df_stories_final["data"] = pd.to_datetime(
-                    df_stories_final["data"], errors='coerce'
-                ).dt.strftime("%d/%m/%Y %H:%M:%S")
-                
-            logger.info(f"✅ {len(df_stories_final)} stories processados.")
-        else:
-            df_stories_final = pd.DataFrame()
-
-        # =================================================================
-        # 8. Processamento de Reels (NOVO)
-        # =================================================================
-        logger.info("\n🎬 PROCESSANDO REELS...")
-        
-        # Filtra onde post_type é REEL ou media_type analytics é VIDEO/REEL
-        df_reels = pd.DataFrame()
-        if not df_posts.empty:
-            # Normaliza para comparação
-            mask_reels = (
-                (df_posts['post_type'] == 'REEL') | 
-                (df_posts['media_type'].astype(str).str.upper().isin(['REEL', 'REELS', 'VIDEO']))
-            )
-            df_reels = df_posts[mask_reels].copy()
-            
-        reels_mapping = {
-            "workspace_name": "cidade",
-            "published_at": "data",
-            "profile_name": "perfil",
-            "permalink": "link",
-            "title": "titulo",
-            "video_duration": "duracao_seg",
-            "plays": "visualizacoes",
-            "total_watch_time": "tempo_assistido_seg",
-            "avg_watch_time": "tempo_medio_seg",
-            "reach": "alcance",
-            "likes": "likes",
-            "comments": "comentarios",
-            "shares": "compartilhamentos",
-            "saves": "salvos",
-            "engagement_rate": "engajamento",
-            "extraction_timestamp": "timestamp"
-        }
-        
-        if not df_reels.empty:
-            cols_export_reels = [c for c in reels_mapping.keys() if c in df_reels.columns]
-            df_reels_final = df_reels[cols_export_reels].rename(columns=reels_mapping)
-            
-            # Formata Data
-            if "Data" in df_reels_final.columns:
-                df_reels_final["Data"] = pd.to_datetime(
-                    df_reels_final["Data"], errors='coerce'
-                ).dt.strftime("%d/%m/%Y")
-            
-            # Ordena por Data
-            if "Data" in df_reels_final.columns:
-                df_reels_final = df_reels_final.sort_values(by="Data", ascending=False)
-                
-            logger.info(f"✅ {len(df_reels_final)} reels processados.")
-        else:
-            df_reels_final = pd.DataFrame()
-
-        # =================================================================
-        # 9. Processamento de Imagens (NOVO - FASE 3)
-        # =================================================================
-        logger.info("\n🖼️ PROCESSANDO IMAGENS...")
-        
-        df_images = pd.DataFrame()
-        if not df_posts.empty:
-            # Lógica: É FEED e NÃO é Carrossel nem Vídeo
-            # Identifica carrossel e vídeo para excluir
-            mask_carousel_video = (
-                (df_posts['post_type'] == 'CAROUSEL_ALBUM') | 
-                (df_posts['media_type'].astype(str).str.upper().isin(['CAROUSEL', 'CAROUSEL_ALBUM', 'REEL', 'REELS', 'VIDEO']))
-            )
-            
-            mask_images = (
-                (df_posts['post_type'] == 'FEED') & 
-                (~mask_carousel_video)
-            )
-            
-            df_images = df_posts[mask_images].copy()
-            
-        common_mapping = {
-            "workspace_name": "cidade",
-            "published_at": "data",
-            "profile_name": "perfil",
-            "permalink": "link",
-            "title": "legenda_titulo",
-            "likes": "likes",
-            "comments": "comentarios",
-            "shares": "compartilhamentos",
-            "saves": "salvos",
-            "reach": "alcance",
-            "impressions": "impressoes",
-            "engagement_rate": "engajamento",
-            "extraction_timestamp": "timestamp"
-        }
-        
-        if not df_images.empty:
-            cols_img = [c for c in common_mapping.keys() if c in df_images.columns]
-            df_images_final = df_images[cols_img].rename(columns=common_mapping)
-             # Formata Data
-            if "data" in df_images_final.columns:
-                df_images_final["data"] = pd.to_datetime(df_images_final["data"], errors='coerce').dt.strftime("%d/%m/%Y")
-            df_images_final = df_images_final.sort_values(by="data", ascending=False)
-            logger.info(f"✅ {len(df_images_final)} imagens processadas.")
-        else:
-            df_images_final = pd.DataFrame()
-
-        # =================================================================
-        # 10. Processamento de Carrossel (NOVO - FASE 3)
-        # =================================================================
-        logger.info("\n🎠 PROCESSANDO CARROSSEIS...")
-        
-        df_carousels = pd.DataFrame()
-        if not df_posts.empty:
-            mask_carousels = (
-                (df_posts['post_type'] == 'CAROUSEL_ALBUM') | 
-                (df_posts['media_type'].astype(str).str.upper().isin(['CAROUSEL', 'CAROUSEL_ALBUM']))
-            )
-            df_carousels = df_posts[mask_carousels].copy()
-            
-        if not df_carousels.empty:
-            cols_car = [c for c in common_mapping.keys() if c in df_carousels.columns]
-            df_carousels_final = df_carousels[cols_car].rename(columns=common_mapping)
-             # Formata Data
-            if "data" in df_carousels_final.columns:
-                df_carousels_final["data"] = pd.to_datetime(df_carousels_final["data"], errors='coerce').dt.strftime("%d/%m/%Y")
-            df_carousels_final = df_carousels_final.sort_values(by="data", ascending=False)
-            logger.info(f"✅ {len(df_carousels_final)} carrosseis processados.")
-        else:
-            df_carousels_final = pd.DataFrame()
-
-        # =================================================================
-        # 10.1. Processamento UNIFICADO (Base Looker Studio) (NOVO)
-        # =================================================================
-        logger.info("\n📊 PROCESSANDO BASE UNIFICADA (LOOKER)...")
-        
-        df_unified = pd.DataFrame()
-        if not df_posts.empty:
-            # 1. Usa TODOS os posts para garantir a mesma contagem de "Dados Brutos"
-            # (Removemos o filtro restritivo anterior)
-            df_uni_raw = df_posts.copy()
-            
-            # Função para padronizar tipo de mídia (Reels, Imagem, Carrousel)
-            def standardize_media_type(row):
-                p_type = str(row.get('post_type', '')).upper()
-                m_type = str(row.get('media_type', '')).upper()
-                
-                # Reels / Vídeo
-                if p_type in ['REEL', 'REELS', 'VIDEO', 'IGTV'] or m_type in ['REEL', 'REELS', 'VIDEO', 'IGTV']:
-                    return 'Reels'
-                # Carrossel (Usuario solicitou com 2 'r')
-                elif p_type in ['CAROUSEL_ALBUM', 'CAROUSEL', 'SIDE_CAR'] or m_type in ['CAROUSEL', 'CAROUSEL_ALBUM', 'SIDE_CAR']:
-                    return 'Carrousel'
-                # Imagem / Feed
-                elif p_type in ['IMAGE', 'FEED'] or m_type in ['IMAGE', 'FEED']:
-                    return 'Imagem'
-                else:
-                    return 'Outros' # Para identificar posts perdidos
-
-            df_uni_raw['media_type_std'] = df_uni_raw.apply(standardize_media_type, axis=1)
-            
-            # Garante colunas de vídeo (preenche com 0 se não existir ou se não for vídeo)
-            video_cols = ['video_duration', 'total_watch_time', 'avg_watch_time', 'plays']
-            for vc in video_cols:
-                if vc not in df_uni_raw.columns:
-                    df_uni_raw[vc] = 0
-                else:
-                    df_uni_raw[vc] = df_uni_raw[vc].fillna(0)
-            
-            # Garante coluna plays (se vazio, usa impressões como proxy para Reels, ou vice-versa)
-            if 'plays' in df_uni_raw.columns:
-                 df_uni_raw['impressions'] = df_uni_raw[['impressions', 'plays']].max(axis=1)
-
-            # Calcula Taxa de Alcance Individual (%)
-            # Fórmula: (Alcance / Seguidores) * 100
-            def calc_post_reach_rate(row):
-                followers = row.get('follower_count', 0)
-                reach = row.get('reach', 0)
-                if followers > 0:
-                    return round((reach / followers) * 100, 2)
-                return 0.0
-
-            df_uni_raw['reach_rate'] = df_uni_raw.apply(calc_post_reach_rate, axis=1)
-
-            # Selecão e Renomeação
-            unified_mapping = {
-                "internal_id": "id_post",
-                "published_at": "data",
-                "workspace_name": "cidade",
-                "profile_name": "perfil",
-                "platform": "rede_social",
-                "follower_count": "seguidores",
-                "media_type_std": "tipo_midia",
-                "permalink": "link",
-                "title": "legenda_titulo",
-                "reach": "alcance",
-                "reach_rate": "taxa_alcance",
-                "impressions": "impressoes",
-                "engagement_rate": "engajamento",
-                "likes": "likes",
-                "comments": "comentarios",
-                "saves": "salvos",
-                "shares": "compartilhamentos",
-                "extraction_timestamp": "timestamp"
-            }
-            
-            cols_uni = [c for c in unified_mapping.keys() if c in df_uni_raw.columns]
-            df_unified = df_uni_raw[cols_uni].rename(columns=unified_mapping)
-            
-             # Formata Data e Ordena
-            if "data" in df_unified.columns:
-                df_unified["data"] = pd.to_datetime(df_unified["data"], errors='coerce').dt.strftime("%d/%m/%Y")
-            
-            df_unified = df_unified.sort_values(by="data", ascending=False)
-            logger.info(f"✅ {len(df_unified)} linhas na Base Unificada.")
 
         # =================================================================
         # 11. Processamento de Destaques (Top Posts) (NOVO - FASE 3)
@@ -658,61 +295,16 @@ def run_etl() -> bool:
         else:
             logger.warning("⚠️ Nenhum dado para monitoramento.")
 
-        # =========================================================================
-        # 10. HISTÓRICO DIÁRIO MYCREATOR (Publishing Behavior e Insights)
-        # =========================================================================
-        # Agrupa posts por Data e Perfil para criar histórico
-        # Métricas: Qtd Posts, Alcance, Impressões, Engajamento
-        if not df_posts.empty:
-            # Garante que as colunas numéricas estão certas
-            cols_to_sum = ['reach', 'impressions', 'likes', 'comments', 'shares', 'saves']
-            for col in cols_to_sum:
-                if col in df_posts.columns:
-                    df_posts[col] = pd.to_numeric(df_posts[col], errors='coerce').fillna(0)
-            
-            # Cria coluna de Engajamento Total (soma das interações) se não existir
-            if 'engagement_total' not in df_posts.columns:
-                df_posts['engagement_total'] = (
-                    df_posts['likes'] + 
-                    df_posts['comments'] + 
-                    df_posts['shares'] + 
-                    df_posts['saves']
-                )
-
-            # Agrupa
-            df_history = df_posts.groupby(['published_at', 'workspace_name', 'profile_name', 'platform']).agg({
-                'internal_id': 'count',
-                'reach': 'sum',
-                'impressions': 'sum',
-                'engagement_total': 'sum',
-                'plays': 'sum',
-                'total_watch_time': 'sum'
-            }).reset_index()
-
-            # Renomeia
-            df_history = df_history.rename(columns={
-                'published_at': 'data',
-                'workspace_name': 'cidade',
-                'profile_name': 'perfil',
-                'platform': 'rede',
-                'internal_id': 'posts_publicados',
-                'reach': 'alcance_soma',
-                'impressions': 'impressoes_soma',
-                'engagement_total': 'engajamento_soma',
-                'plays': 'plays_soma',
-                'total_watch_time': 'tempo_assistido_total_seg'
-            })
-            
-            # Ordena por data decrescente
-            df_history = df_history.sort_values(by='data', ascending=False)
-            logger.info(f"✅ {len(df_history)} linhas de Histórico Diário geradas.")
-        else:
-            df_history = pd.DataFrame()
 
         # =========================================================================
         # 11. TOP POSTS MYCREATOR (Rankings)
         # =========================================================================
         if not df_posts.empty:
+            # Garantir a criação da coluna engagement_total para rankeamento
+            interaction_cols = ['likes', 'comments', 'shares', 'saves']
+            actual_cols = [c for c in interaction_cols if c in df_posts.columns]
+            df_posts['engagement_total'] = df_posts[actual_cols].fillna(0).sum(axis=1) if actual_cols else 0
+            
             # Vamos pegar o Top 20 de cada métrica
             top_reach = df_posts.nlargest(20, 'reach')[['permalink', 'reach', 'title', 'profile_name', 'published_at', 'media_type']].copy()
             top_reach['Rank_Tipo'] = 'alcance'
@@ -745,25 +337,6 @@ def run_etl() -> bool:
         else:
             df_top_posts = pd.DataFrame()
 
-        # =========================================================================
-        # 12. SNAPSHOT SEGUIDORES (Diário)
-        # =========================================================================
-        # Prepara dados para o append diário
-        if not df_profiles.empty:
-            df_snapshot = df_profiles[['workspace_name', 'profile_name', 'followers', 'extraction_timestamp']].copy()
-            # Adiciona data do snapshot (apenas data YYYY-MM-DD para o BigQuery futuramente)
-            df_snapshot['Data_Snapshot'] = datetime.now().strftime("%Y-%m-%d")
-            
-            # Reordena: Data, Workspace, Perfil, Seguidores
-            df_snapshot = df_snapshot[['Data_Snapshot', 'workspace_name', 'profile_name', 'followers']]
-            df_snapshot = df_snapshot.rename(columns={
-                'workspace_name': 'cidade',
-                'profile_name': 'perfil',
-                'followers': 'seguidores'
-            })
-            logger.info(f"✅ {len(df_snapshot)} linhas de Snapshot de Seguidores preparadas.")
-        else:
-            df_snapshot = pd.DataFrame()
 
         # =====================================================================
         # ETAPA 3: LOAD (GOOGLE SHEETS)
@@ -771,119 +344,43 @@ def run_etl() -> bool:
         logger.info("\n📤 ETAPA 3: CARGA NO GOOGLE SHEETS")
         logger.info(f"📑 Sheet ID: {config.google_sheet_id}")
         logger.info(f"📑 Aba Posts: {config.sheet_tab_name}")
-        logger.info(f"📑 Aba Perfis: perfis")
-        logger.info(f"📑 Aba Stories: stories_detalhado")
-        logger.info(f"📑 Aba Hashtags: hashtags_analitico")
-        logger.info(f"📑 Aba Reels: reels_detalhado")
-        logger.info(f"📑 Aba Imagens: imagens_detalhado")
-        logger.info(f"📑 Aba Carro: carrossel_detalhado")
-        logger.info(f"📑 Aba Monitoramento: redes_monitoramento")
-        logger.info(f"📑 Aba Histórico: historico_diario_mycreator")
+        logger.info(f"📑 Aba Analise Hashtag: analise_hashtag")
         logger.info(f"📑 Aba Top Posts: top_posts_mycreator")
-        logger.info(f"📑 Aba Snapshot: snapshot_seguidores (APPEND)")
         logger.info(f"📑 Aba Crescimento: crescimento_seguidores")
         logger.info(f"📝 Modo: {config.write_mode}")
         
-        # Carga 1: Posts (Aba padrão)
+        # Carga 1: Posts (Aba padrão / Dados Brutos)
         success_posts = True
         if not df_final.empty:
             logger.info(f"Uploading Posts ({len(df_final)} linhas)...")
             success_posts = load_to_sheets(df_final, config, tab_name=config.sheet_tab_name)
-            time.sleep(10) # Avoid Rate Limit
-        
-        # Carga 2: Perfis (Nova aba)
-        success_profiles = True
-        if not df_final_profiles.empty:
-            logger.info(f"Uploading perfis ({len(df_final_profiles)} linhas)...")
-            success_profiles = load_to_sheets(df_final_profiles, config, tab_name="perfis")
-            time.sleep(10)
-
-
-        # Carga 6: Imagens (Aba Imagens_Detalhado)
-        success_images = True
-        if not df_images_final.empty:
-            logger.info(f"Uploading imagens_detalhado ({len(df_images_final)} linhas)...")
-            success_images = load_to_sheets(df_images_final, config, tab_name="imagens_detalhado")
-            time.sleep(10)
-
-        # Carga 7: Carrossel (Aba Carrossel_Detalhado)
-        success_carousels = True
-        if not df_carousels_final.empty:
-            logger.info(f"Uploading carrossel_detalhado ({len(df_carousels_final)} linhas)...")
-            success_carousels = load_to_sheets(df_carousels_final, config, tab_name="carrossel_detalhado")
-            time.sleep(10)
-
-        # Carga 8: Monitoramento (Aba Redes_Monitoramento)
-        success_highlights = True
-        if not df_highlights.empty:
-            logger.info(f"Uploading redes_monitoramento ({len(df_highlights)} linhas)...")
-            success_highlights = load_to_sheets(df_highlights, config, tab_name="redes_monitoramento")
-            time.sleep(10)
+            time.sleep(5)
             
-        # Carga 3: Hashtags (Nova aba)
+        # Carga 2: Hashtags (Renomeada)
         success_hashtags = True
         if not df_hashtags_final.empty:
-            logger.info(f"Uploading hashtags_analitico ({len(df_hashtags_final)} linhas)...")
-            success_hashtags = load_to_sheets(df_hashtags_final, config, tab_name="hashtags_analitico")
-            time.sleep(10)
+            logger.info(f"Uploading analise_hashtag ({len(df_hashtags_final)} linhas)...")
+            success_hashtags = load_to_sheets(df_hashtags_final, config, tab_name="analise_hashtag")
+            time.sleep(5)
 
-        # Carga 4: Stories (Nova aba)
-        success_stories = True
-        if not df_stories_final.empty:
-            logger.info(f"Uploading stories_detalhado ({len(df_stories_final)} linhas)...")
-            success_stories = load_to_sheets(df_stories_final, config, tab_name="stories_detalhado")
-            time.sleep(10)
-
-        # Carga 5: Reels (Nova aba)
-        success_reels = True
-        if not df_reels_final.empty:
-            logger.info(f"Uploading reels_detalhado ({len(df_reels_final)} linhas)...")
-            success_reels = load_to_sheets(df_reels_final, config, tab_name="reels_detalhado")
-            time.sleep(10)
-
-        # Carga 9: Base Unificada (Aba Base_Looker_Unificada)
-        success_unified = True
-        if not df_unified.empty:
-            logger.info(f"Uploading base_looker_unificada ({len(df_unified)} linhas)...")
-            success_unified = load_to_sheets(df_unified, config, tab_name="base_looker_unificada")
-            time.sleep(10)
-            
-        # Carga 10: Histórico Diário
-        success_history = True
-        if not df_history.empty:
-            logger.info(f"Uploading historico_diario_mycreator ({len(df_history)} linhas)...")
-            success_history = load_to_sheets(df_history, config, tab_name="historico_diario_mycreator")
-            time.sleep(10)
-
-        # Carga 11: Top Posts
+        # Carga 3: Top Posts
         success_top = True
         if not df_top_posts.empty:
             logger.info(f"Uploading top_posts_mycreator ({len(df_top_posts)} linhas)...")
             success_top = load_to_sheets(df_top_posts, config, tab_name="top_posts_mycreator")
-            time.sleep(10)
-            
-        # Carga 12: Snapshot Seguidores (APPEND FORÇADO)
-        success_snapshot = True
-        if not df_snapshot.empty:
-            logger.info(f"Uploading snapshot_seguidores ({len(df_snapshot)} linhas) [APPEND]...")
-            # Cria config temporária para forçar append
-            from dataclasses import replace
-            config_append = replace(config, write_mode="append")
-            success_snapshot = load_to_sheets(df_snapshot, config_append, tab_name="snapshot_seguidores")
             time.sleep(5)
-
-        # Carga 13: Crescimento de Seguidores (audience_growth)
+            
+        # Carga 4: Crescimento de Seguidores
         success_growth = True
         if not df_audience_growth.empty:
             logger.info(f"Uploading crescimento_seguidores ({len(df_audience_growth)} linhas)...")
             success_growth = load_to_sheets(df_audience_growth, config, tab_name="crescimento_seguidores")
             time.sleep(5)
         
-        if not success_posts or not success_profiles or not success_hashtags or not success_stories or not success_reels or not success_images or not success_carousels or not success_highlights or not success_unified or not success_history or not success_top or not success_snapshot or not success_growth:
+        if not all([success_posts, success_hashtags, success_top, success_growth]):
             logger.error("❌ Falha parcial na atualização do Google Sheets!")
-        
-        if all([success_posts, success_profiles, success_hashtags, success_stories, success_reels, success_images, success_carousels, success_highlights, success_unified, success_history, success_top, success_snapshot, success_growth]):
-            logger.info("✅ Google Sheets (Todas as 13 abas) atualizado com sucesso!")
+        else:
+            logger.info("✅ Google Sheets (4 abas essenciais) atualizado com sucesso!")
         
         # =====================================================================
         # RESUMO FINAL
@@ -895,7 +392,6 @@ def run_etl() -> bool:
         logger.info(f"⏱️ Duração: {duration:.2f} segundos")
         logger.info(f"⏱️ Duração: {duration:.2f} segundos")
         logger.info(f"📊 Posts processados: {total_posts}")
-        logger.info(f"👥 Perfis processados: {len(df_final_profiles)}")
         logger.info(f"📄 Sheets: https://docs.google.com/spreadsheets/d/{config.google_sheet_id}")
         logger.info("=" * 60)
         

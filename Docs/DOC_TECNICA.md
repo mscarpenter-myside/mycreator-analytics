@@ -17,74 +17,44 @@ graph TD
     classDef join fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:#4a148c;
 
     subgraph Sources ["📡 Fontes (API)"]
-        A1["Endpoint: /getSummary"]:::api
         A2["Endpoint: /fetchPlans"]:::api
         A3["Endpoint: /postAnalytics"]:::api
+        A4["Endpoint: /audienceGrowth"]:::api
     end
 
     subgraph Processing ["⚙️ Processamento (Python)"]
-        B1("1. Extração de Perfis"):::etl
-        B2("2. Extração de Posts"):::etl
-        B3{{"⚡ ENRIQUECIMENTO"}}:::join
-        B4["Dict: AccountID -> Seguidores"]:::etl
+        B2("Extração de Posts"):::etl
+        B5("Extração de Hashtags"):::etl
+        B10("Agregação Monitoramento (Apenas Logs)"):::etl
+        B13("Top Posts (Rank)"):::etl
     end
 
-    subgraph Destination ["📊 Google Sheets"]
-        C1[("Aba: Perfis")]:::storage
-        C2[("Aba: Dados_Brutos")]:::storage
+    subgraph Destination ["📊 Google Sheets (Pilares)"]
+        C2[("Aba: dados_brutos")]:::storage
+        C3[("Aba: analise_hashtag")]:::storage
+        C11[("Aba: top_posts_mycreator")]:::storage
+        C12[("Aba: crescimento_seguidores")]:::storage
     end
 
-    %% Fluxo Perfis (Master Data)
-    A1 -->|JSON: Followers, Engajamento| B1
-    B1 -->|Cria Mapa em Memória| B4
-    B1 -->|DataFrame Limpo| C1
-
-    %% Fluxo Posts (Transactional Data)
+    A4 -->|Crescimento| C12
     A2 -->|JSON: Lista de Posts| B2
     A3 -->|JSON: Likes, Reach, Type| B2
     
-    B2 --> B3
-    B3 -->|DataFrame Final| C2
-    B3 -.->|Regex Extraction| B5("3. Extração de Hashtags"):::etl
-    B5 -->|DataFrame Agregado| C3[("Aba: Hashtags_Analitico")]:::storage
+    B2 -->|DataFrame Final| C2
+    B2 -.->|Regex Extraction| B5:::etl
+    B5 -->|DataFrame Agregado| C3:::storage
     
-    A2 -->|JSON: Stories Type=Story| B6("4. Extração de Stories"):::etl
-    B6 -->|DataFrame Stories| C4[("Aba: Stories_Detalhado")]:::storage
-
-    %% Novos Fluxos (Fase 3)
-    B2 -->|Filtro: Video/Reel| B7("5. Filtro Reels"):::etl
-    B7 --> C5[("Aba: Reels_Detalhado")]:::storage
-
-    B2 -->|Filtro: Imagem Feed| B8("6. Filtro Imagens"):::etl
-    B8 --> C6[("Aba: Imagens_Detalhado")]:::storage
-
-    B2 -->|Filtro: Carrossel| B9("7. Filtro Carrossel"):::etl
-    B9 --> C7[("Aba: Carrossel_Detalhado")]:::storage
-
-    B2 -->|Agregação| B10("8. Monitoramento"):::etl
-    B10 --> C8[("Aba: Redes_Monitoramento")]:::storage
-
-    B2 -->|Padronização| B11("9. Base Unificada"):::etl
-    B11 --> C9[("Aba: Base_Looker_Unificada")]:::storage
-
-    %% Novos Fluxos (Analytics Avançado)
-    B2 -->|Agrupa por Data| B12("10. Histórico Diário"):::etl
-    B12 --> C10[("Aba: Historico_Diario_MyCreator")]:::storage
-
-    B2 -->|Rank Top 20| B13("11. Top Posts"):::etl
-    B13 --> C11[("Aba: Top_Posts_MyCreator")]:::storage
-
-    B1 -->|Append Diario| B14("12. Snapshot Seguidores"):::etl
-    B14 --> C12[("Aba: Snapshot_Seguidores")]:::storage
-
-    linkStyle 4 stroke:#7b1fa2,stroke-width:3px;
+    B2 -->|Agregação Interna| B10:::etl
+    
+    B2 -->|Rank Top 20| B13:::etl
+    B13 --> C11:::storage
 ```
 
 ---
 
 ## 🔄 2. Diagrama de Sequência (Execução Passo-a-Passo)
 
-Este diagrama detalha a ordem exata das chamadas HTTP realizadas pelo script `run_etl.py`. Útil para depuração e entendimento de latência.
+Este diagrama detalha a ordem exata das chamadas HTTP realizadas pelo script `run_etl.py` enxuto.
 
 ```mermaid
 sequenceDiagram
@@ -92,35 +62,20 @@ sequenceDiagram
     participant API as ☁️ MyCreator API
     participant Sheet as 📊 Google Sheets
 
-    Note over ETL, API: 🟢 FASE 1: Extração de Perfis (Master Data)
-    ETL->>API: POST /backend/fetchSocialAccounts (Lista Contas)
-    loop Para cada Conta
-        ETL->>API: POST /backend/analytics/overview/getSummary
-        API-->>ETL: JSON { followers, engagement_rate, ... }
-        ETL->>ETL: Armazena em Memória (Dict)
-    end
-
-    Note over ETL, API: 🟢 FASE 2: Extração de Posts & Hashtags (Transaction Data)
+    Note over ETL, API: 🟢 FASE 1: Extração de Posts & Crescimento
+    ETL->>API: POST /backend/audienceGrowth
     ETL->>API: POST /backend/plan/preview (Lista Posts)
     loop Para cada Post
-        ETL->>ETL: Lookup Followers (usa Dict da Fase 1)
         ETL->>ETL: Regex Extract Hashtags (from Caption)
         ETL->>API: GET /backend/analytics/post/{id}
-        API-->>ETL: JSON { likes, reach, media_type, ... }
+        API-->>ETL: JSON { metrics }
     end
 
-    Note over ETL, API: 🟢 FASE 3: Extração de Stories (New!)
-    ETL->>API: POST /backend/fetchPlans (type=['story'])
-    loop Para cada Story
-        ETL->>API: POST /backend/plan/preview
-        API-->>ETL: JSON { metadata, metrics (if available) }
-    end
-
-    Note over ETL, Sheet: 🟢 FASE 4: Carga (Load)
-    ETL->>Sheet: load_to_sheets(df_perfis, tab="Perfis")
-    ETL->>Sheet: load_to_sheets(df_posts, tab="Dados_Brutos")
-    ETL->>Sheet: load_to_sheets(df_hashtags, tab="Hashtags_Analitico")
-    ETL->>Sheet: load_to_sheets(df_stories, tab="Stories_Detalhado")
+    Note over ETL, Sheet: 🟢 FASE 2: Carga
+    ETL->>Sheet: load_to_sheets(df_posts, tab="dados_brutos")
+    ETL->>Sheet: load_to_sheets(df_hashtags, tab="analise_hashtag")
+    ETL->>Sheet: load_to_sheets(df_top_posts, tab="top_posts_mycreator")
+    ETL->>Sheet: load_to_sheets(df_audience_growth, tab="crescimento_seguidores")
     Sheet-->>ETL: Success (200 OK)
 ```
 
@@ -128,42 +83,21 @@ sequenceDiagram
 
 ## 🧩 3. Modelo de Dados (Relacionamento entre Abas)
 
-Embora o Google Sheets não seja um banco de dados relacional, estruturamos as abas como tal para facilitar a análise no Looker Studio ou Power BI.
+Estrutura das abas simplificadas para facilitar a análise no Looker Studio ou Power BI.
 
 ```mermaid
 erDiagram
-    PERFIS ||--o{ POSTS : "publica"
-    PERFIS ||--o{ STORIES : "publica"
     POSTS ||--o{ HASHTAGS : "contem"
     
-    PERFIS {
-        string Cidade
-        string Perfil PK "Chave Primária Lógica"
-        int Seguidores "Snapshot Atual"
-        float Engajamento_Medio
-        int Total_Posts
-        date Atualizado_em
-    }
-
     POSTS {
         string Cidade
-        string Perfil FK "Chave Estrangeira p/ Perfis"
+        string Perfil
         date Data_Publicacao
-        string Tipo_Midia "Reels, Video, Imagem"
+        string Tipo_Midia "Reels, Video, Imagem, Carousel"
         int Seguidores "Snapshot no Momento da Extração"
         int Alcance
         int Impressoes
         int Likes
-    }
-
-    STORIES {
-        string ID_Story PK
-        string Perfil FK
-        date Data_Publicacao
-        string Link
-        string Preview_URL
-        int Alcance "N/A (API limitation)"
-        int Impressoes "N/A (API limitation)"
     }
 
     HASHTAGS {
@@ -173,58 +107,6 @@ erDiagram
         int Engajamento_Total
     }
 
-    REELS {
-        string Link
-        string Titulo
-        int Duracao "Duração"
-        int Visualizacoes "Plays"
-        int Tempo_Assistido
-        float Tempo_Medio
-        int Alcance
-        int Likes
-    }
-
-    IMAGENS {
-        string Link
-        string Legenda
-        int Likes
-        int Comentarios
-        int Alcance
-    }
-
-    CARROSSEL {
-        string Link
-        string Legenda
-        int Likes
-        int Comentarios
-        int Alcance
-    }
-
-    MONITORAMENTO {
-        string Cidade_Plataforma PK
-        int Contagem_Posts
-        float Engajamento_Medio
-        int Alcance_Total
-    }
-
-    BASE_UNIFICADA {
-        string ID_Post PK
-        string Tipo_Midia "Reels, Video, Imagem, Carrousel"
-        int Seguidores
-        int Alcance
-        int Impressoes
-        float Engajamento_Pct
-    }
-
-    HISTORICO_DIARIO {
-        date Data PK
-        string Perfil PK
-        string Rede
-        int Posts_Publicados
-        int Alcance_Soma
-        int Engajamento_Soma
-    }
-
     TOP_POSTS {
         string Rank_Tipo
         int Valor_Metrica
@@ -232,82 +114,18 @@ erDiagram
         string Link
     }
 
-    SNAPSHOT_SEGUIDORES {
-        date Data_Snapshot PK
+    CRESCIMENTO_SEGUIDORES {
+        date Data PK
         string Perfil PK
         int Seguidores
-    }
-
-    VISAO_GERAL {
-        date Data_Extracao
-        string Perfil
-        int Seguidores
-        int Posts_Ano
-        int Engajamento_Ano
     }
 ```
 
 ### Explicação do Modelo
-*   **Aba Perfis (Dimensão)**: Contém atributos únicos da conta. Se o nome do perfil mudar, reflete aqui.
-*   **Aba Posts (Fato)**: Contém eventos históricos.
-*   **Aba Stories (Fato)**: Novo! Contém eventos efêmeros (Stories) rastreados.
-    *   *Nota*: Métricas de engajamento (taps, saídas) dependem da API liberar acesso histórico.
-*   **Aba Hashtags (Agregada)**: Tabela contendo a performance consolidada por hashtag.
-*   **Abas Detalhadas (Reels, Imagens, Carrossel)**: Segmentações específicas por formato de mídia para análises focadas.
-*   **Aba Redes_Monitoramento**: Visão executiva agregada por cidade e plataforma.
-*   **Aba Base_Looker_Unificada**: Tabela mestra padronizada (normalizada) pronta para consumo direto pelo Looker Studio, contendo todos os tipos de mídia com colunas compatíveis.
-
-### Detalhamento das Colunas (Atualizado)
-
-#### Aba: Perfis
-| Coluna | Descrição |
-| :--- | :--- |
-| **Cidade** | Nome do workspace (Ex: Florianópolis) |
-| **Perfil** | Nome da conta (Ex: myside.florianopolis) |
-| **Seguidores (Total)** | Total de seguidores da conta |
-| **Posts MyCreator** | Quantidade de posts processados/extraídos |
-| **Engajamento Médio MyCreator (%)** | (Interações / Alcance) * 100 |
-
-| **Alcance Acumulado MyCreator** | Soma do alcance dos posts extraídos |
-| **Interações Totais MyCreator** | Soma de Likes + Comentários + Salvos + Shares |
-| **Atualizado em** | Data da extração |
-
-#### Aba: Base_Looker_Unificada (Fonte Mestra)
-Esta é a principal tabela para dashboards. Normaliza diferentes tipos de métricas.
-
-| Coluna | Descrição |
-| :--- | :--- |
-| **ID Post** | Identificador único |
-| **Data** | Data de publicação (DD/MM/YYYY) |
-| **Cidade** | Workspace |
-| **Perfil** | Conta emissora |
-| **Rede Social** | Instagram, Facebook, etc |
-| **Seguidores** | No momento da publicação |
-| **Tipo de Mídia** | Padronizado: `Reels`, `Imagem`, `Carrousel` |
-| **Link** | URL do post |
-| **Legenda/Título** | Texto descritivo |
-| **Alcance** | Pessoas alcançadas |
-| **Impressões** | Total de visualizações |
-| **Engajamento (%)** | Taxa de engajamento |
-| **Likes/Comentários/Salvos/Shares** | Métricas de interação |
-
-#### Abas Específicas (Imagens, Carrossel, Reels)
-Contêm métricas exclusivas de cada formato (ex: `Duração` e `Plays` para Reels). Estão separadas para facilitar auditoria.
-
-#### Aba: Redes_Monitoramento
-Resumo executivo atualizado a cada execução.
-- **Engajamento Médio (%)**: Performance média da marca na cidade.
-- **Alcance/Impressões Totais**: Visibilidade total da marca na cidade.
-
-#### Aba: Visao_Geral_Perfil
-Nova aba contendo benchmarking de 365 dias (dados gerais da API).
-- **Total Posts / Alcance / Engajamento**: Métricas acumuladas para comparação.
-
-#### Analytics Interno (Historico, Top Posts, Snapshot)
-Novas abas focadas em reconstruir os gráficos do dashboard MyCreator.
-- **Historico_Diario**: Agregação temporal da performance dos posts.
-- **Top_Posts**: Rankings de melhores publicações.
-- **Snapshot_Seguidores**: Log histórico do crescimento de base.
+*   **Aba dados_brutos (Fato Principal)**: Contém eventos históricos de feed, reels, e carrossel. Fornece a base de cálculo para o Looker Studio.
+*   **Aba analise_hashtag (Agregada)**: Tabela contendo a performance consolidada por hashtag, construída minerando a legenda dos posts.
+*   **Aba top_posts_mycreator**: Um ranqueamento atualizado com os melhores posts que geraram alcance, engajamento e visualizações em toda a rede.
+*   **Aba crescimento_seguidores**: Monitoramento da flutuação da audiência global.
 
 ---
 

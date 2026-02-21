@@ -6,20 +6,23 @@ Este projeto automatiza a extração de dados da plataforma **MyCreator (antiga 
 
 ---
 
-## 🔥 Funcionalidades (Atualizado v2.0)
+## 🔥 Funcionalidades (Pipeline Enxuto)
 
-O sistema opera em uma arquitetura de **Dual-Tab**, gerando duas tabelas sincronizadas no Google Sheets:
+O sistema opera de maneira otimizada exportando dados fundamentais de performance nas redes sociais para o Google Sheets através de 4 abas principais:
 
-### 1. Aba "Dados_Brutos" (Posts)
-Tabela granular contendo cada postagem individual com suas métricas de desempenho.
+### 1. `dados_brutos` (Posts)
+Tabela granular contendo postagens unitárias com métricas de desempenho.
 *   **Métricas**: Likes, Comentários, Salvos, Compartilhamentos, Alcance, Impressões.
-*   **Novidade**: Coluna **Seguidores** (snapshot no momento da extração) para cálculo de taxa de alcance.
 *   **Segmentação**: Tipo de Mídia (Reels, Carrossel, Vídeo, Imagem).
 
-### 2. Aba "Perfis" (Saúde da Conta)
-Tabela consolidada com o snapshot diário de todas as contas monitoradas.
-*   **Métricas**: Total de Seguidores, Total de Posts, Engajamento Médio (30 dias), Alcance Total (30 dias).
-*   **Cobertura**: Monitora automaticamente todas as contas configuradas nos workspaces.
+### 2. `analise_hashtag` (Temas Virais)
+Agregação em volume do engajamento e alcance através da mineração das palavras-chave postadas.
+
+### 3. `top_posts_mycreator` (Destaques)
+Ranqueamento unificado dos melhores conteúdos da marca baseando-se no alcance global, engajamento consolidado e total de impressões.
+
+### 4. `crescimento_seguidores` (Audience Growth)
+Monitoramento histórico contínuo da flutuação da audiência agregada por dia para análises de aquisição.
 
 ---
 
