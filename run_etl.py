@@ -3,11 +3,7 @@
 MyCreator Analytics ETL - Multi-Workspace
 ==========================================
 
-Extrai dados de performance das 4 cidades configuradas:
-- Florianópolis: 696e75c20f3354d37f074866
-- Florianópolis Continente: 696689afcddd41ec6a024adb  
-- Goiânia: 696689f3c04f3fefdc0118cd
-- MyCreator: 68fbfe91e94c0946d103643d
+Extrai dados de performance das cidades configuradas:
 
 Fluxo:
 1. Extract: Busca dados da API MyCreator (multi-workspace)
@@ -65,7 +61,7 @@ def run_etl() -> bool:
         if not all_posts:
             logger.warning("⚠️ Nenhum post extraído de nenhum workspace.")
         
-# Extrai Crescimento de Seguidores (audience_growth)
+        # Extrai Crescimento de Seguidores (audience_growth)
         logger.info("\n📡 ETAPA 1.4: EXTRAÇÃO DE CRESCIMENTO DE SEGUIDORES")
         audience_growth_data = extractor.extract_audience_growth()
         
@@ -144,7 +140,7 @@ def run_etl() -> bool:
         # Calcula Reach Rate antes de exportar
         if not df_posts.empty and "reach" in df_posts.columns and "follower_count" in df_posts.columns:
             df_posts["reach_rate"] = df_posts.apply(
-                lambda x: round((x["reach"] / x["follower_count"] * 100), 2) if x["follower_count"] > 0 else 0, 
+                lambda x: round((x["reach"] / x["follower_count"]), 4) if x["follower_count"] > 0 else 0, 
                 axis=1
             )
         
@@ -250,12 +246,12 @@ def run_etl() -> bool:
 
 
         # =================================================================
-        # 11. Processamento de Destaques (Top Posts) (NOVO - FASE 3)
+        # 7. Processamento de Destaques (Top Posts) (NOVO - FASE 3)
         # =================================================================
         logger.info("\n🏆 PROCESSANDO DESTAQUES...")
         
         # =================================================================
-        # 11. Processamento de Destaques (MONITORAMENTO) (ATUALIZADO)
+        # 8. Processamento de Destaques (MONITORAMENTO) (ATUALIZADO)
         # =================================================================
         logger.info("\n🏆 PROCESSANDO MONITORAMENTO (DESTAQUES)...")
         
@@ -297,7 +293,7 @@ def run_etl() -> bool:
 
 
         # =========================================================================
-        # 11. TOP POSTS MYCREATOR (Rankings)
+        # 10. TOP POSTS MYCREATOR (Rankings)
         # =========================================================================
         if not df_posts.empty:
             # Garantir a criação da coluna engagement_total para rankeamento
@@ -356,7 +352,7 @@ def run_etl() -> bool:
             success_posts = load_to_sheets(df_final, config, tab_name=config.sheet_tab_name)
             time.sleep(5)
             
-        # Carga 2: Hashtags (Renomeada)
+        # Carga 2: Hashtags 
         success_hashtags = True
         if not df_hashtags_final.empty:
             logger.info(f"Uploading analise_hashtag ({len(df_hashtags_final)} linhas)...")

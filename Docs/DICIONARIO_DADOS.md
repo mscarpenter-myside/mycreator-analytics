@@ -46,7 +46,7 @@ graph TD
 | **alcance** | Contas únicas alcançadas. | `2500` |
 | **impressoes** | Total de visualizações. | `3000` |
 | **visualizacoes** | Visualizações de vídeo (Reels). | `5000` |
-| **taxa_alcance** | `(Alcance / Seguidores) * 100`. | `12.5` |
+| **taxa_alcance** | `(Alcance / Seguidores)`. O Sheets formata como percentual. | `0.125` |
 | **engajamento** | `(Likes + Coments + Saves) / Alcance`. | `4.5` |
 | **id_instagram** | Identificador único do post (excl. ID). | `1784...` |
 | **link** | URL direta para o post. | `https://instagram.com/p/...` |
