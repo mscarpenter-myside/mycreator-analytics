@@ -123,10 +123,6 @@ def run_etl() -> bool:
             # PERFORMANCE
             "reach": "alcance",
             "reach_rate": "taxa_alcance",
-            "impressions": "impressoes",
-            "plays": "visualizacoes",
-            "total_watch_time": "tempo_assistido_seg",
-            "avg_watch_time": "tempo_medio_seg",
             
             # TÉCNICO
             "permalink": "link",

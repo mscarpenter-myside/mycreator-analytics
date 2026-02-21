@@ -642,7 +642,8 @@ class MyCreatorExtractor:
                     media_url=media_url,
                     permalink=permalink,
                     follower_count=post_follower_count,
-                    extraction_timestamp=extraction_ts
+                    extraction_timestamp=extraction_ts,
+                    media_type=published_post_type
                 )
                 
                 # 3. Busca Analytics
@@ -658,7 +659,7 @@ class MyCreatorExtractor:
                         post_data.reach = metrics["reach"]
                         post_data.impressions = metrics["impressions"]
                         post_data.plays = metrics["plays"]
-                        post_data.media_type = metrics.get("media_type", "")
+                        post_data.media_type = metrics.get("media_type") or post_data.media_type
                         
                         # Atribui métricas avançadas
                         post_data.video_duration = float(metrics.get("video_duration", 0.0))
