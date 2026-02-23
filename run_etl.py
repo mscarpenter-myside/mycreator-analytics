@@ -78,7 +78,19 @@ def run_etl() -> bool:
         records_posts = [asdict(post) for post in all_posts]
         df_posts = pd.DataFrame(records_posts)
         
-
+        # =================================================================
+        # LIMPEZA ESPECIAL DE DADOS: REMOVER AGENDAMENTOS FALHOS
+        # Remove os posts que a API retorna como 'published', 
+        # mas não possuem link ou id externo (falharam na prática).
+        # =================================================================
+        if not df_posts.empty:
+            posts_iniciais = len(df_posts)
+            # Filtro: Mantém apenas posts com permalink (link) válido e external_id
+            df_posts = df_posts[df_posts['permalink'].astype(str).str.strip().astype(bool) & df_posts['external_id'].notna()].copy()
+            posts_removidos = posts_iniciais - len(df_posts)
+            if posts_removidos > 0:
+                logger.warning(f"Removidos {posts_removidos} posts com link quebrado/falha (falso 'published') da base.")
+        
 
         # Converte lista de dicts para DataFrame (Crescimento Seguidores)
         df_audience_growth = pd.DataFrame(audience_growth_data) if audience_growth_data else pd.DataFrame()
