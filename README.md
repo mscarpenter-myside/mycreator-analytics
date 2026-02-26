@@ -59,7 +59,10 @@ Monitoramento histórico contínuo da flutuação da audiência agregada por dia
 
 ## ⚙️ Configuração (GitHub Actions)
 
-O workflow `daily_etl.yml` roda diariamente às 08:00 BRT.
+A infraestrutura na nuvem foi particionada em dois cronogramas (Workflows) independentes para burlar nativamente o longo delay entre a API das redes rociais e a plataforma do MyCreator:
+
+1. **`sync_data.yml`**: Roda às 07:15 BRT e 16:15 BRT. Trata-se de um robô *trigger* rápido que mapeia IDs e injeta sinais de atualização remota para preparar os dados.
+2. **`daily_etl.yml`**: Roda às 08:00 BRT e 17:00 BRT. É o extrator principal que aguarda a plataforma renderizar os dados por 45 minutos antes de começar a raspagem massiva.
 
 ### Variáveis de Ambiente Necessárias (Secrets)
 *   `MYCREATOR_EMAIL` / `MYCREATOR_PASSWORD`: Credenciais de acesso.

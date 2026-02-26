@@ -17,12 +17,14 @@ graph TD
     classDef join fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:#4a148c;
 
     subgraph Sources ["📡 Fontes (API)"]
+        A1["Endpoint: /analytics/triggerJob"]:::api
         A2["Endpoint: /fetchPlans"]:::api
         A3["Endpoint: /postAnalytics"]:::api
         A4["Endpoint: /audienceGrowth"]:::api
     end
 
     subgraph Processing ["⚙️ Processamento (Python)"]
+        B0("Sincronização / Bypass (sync_data)"):::etl
         B2("Extração de Posts"):::etl
         B5("Extração de Hashtags"):::etl
         B10("Agregação Monitoramento (Apenas Logs)"):::etl
@@ -58,11 +60,16 @@ Este diagrama detalha a ordem exata das chamadas HTTP realizadas pelo script `ru
 
 ```mermaid
 sequenceDiagram
+    participant SYNC as 🤖 sync_data.py
     participant ETL as 🐍 run_etl.py
     participant API as ☁️ MyCreator API
     participant Sheet as 📊 Google Sheets
 
-    Note over ETL, API: 🟢 FASE 1: Extração de Posts & Crescimento
+    Note over SYNC, API: 🟢 FASE 1: Sincronização Prévia (-45 min)
+    SYNC->>API: POST /backend/api/analytics/triggerJob (Bypass c/ ID Interno)
+    API-->>SYNC: Status 200 (Sync Iniciado)
+
+    Note over ETL, API: 🟢 FASE 2: Extração de Posts & Crescimento
     ETL->>API: POST /backend/audienceGrowth
     ETL->>API: POST /backend/plan/preview (Lista Posts)
     loop Para cada Post
@@ -71,7 +78,7 @@ sequenceDiagram
         API-->>ETL: JSON { metrics }
     end
 
-    Note over ETL, Sheet: 🟢 FASE 2: Carga
+    Note over ETL, Sheet: 🟢 FASE 3: Carga
     ETL->>Sheet: load_to_sheets(df_posts, tab="dados_brutos")
     ETL->>Sheet: load_to_sheets(df_hashtags, tab="analise_hashtag")
     ETL->>Sheet: load_to_sheets(df_top_posts, tab="top_posts_mycreator")

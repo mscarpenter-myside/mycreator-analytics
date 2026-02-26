@@ -89,7 +89,7 @@ def load_gcp_credentials() -> Optional[dict]:
     
     Prioridade:
     1. Variável de ambiente GCP_SA_KEY (GitHub Actions)
-    2. Arquivo credentials/service_account.json (desenvolvimento local)
+    2. Arquivo credentials/projeto-mkt-buyer-experience-ab8bb5499148.json (desenvolvimento local)
     
     Returns:
         dict: Credenciais JSON parseadas
@@ -107,7 +107,7 @@ def load_gcp_credentials() -> Optional[dict]:
             raise
     
     # 2. Tenta ler de arquivo local
-    cred_path = Path(__file__).parent.parent / "credentials" / "service_account.json"
+    cred_path = Path(__file__).parent.parent / "credentials" / "projeto-mkt-buyer-experience-ab8bb5499148.json"
     if cred_path.exists():
         try:
             with open(cred_path, "r", encoding="utf-8") as f:

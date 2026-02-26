@@ -2,8 +2,9 @@ name: Daily ETL - MyCreator Analytics
 
 on:
   schedule:
-    # Roda todo dia às 08:00 BRT (11:00 UTC)
+    # Roda todo dia às 08:00 BRT (11:00 UTC) e às 17:00 BRT (20:00 UTC)
     - cron: '0 11 * * *'
+    - cron: '0 20 * * *'
   
   # Permite execução manual
   workflow_dispatch:
@@ -27,7 +28,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: 🚀 Executar ETL
+
+      - name: 🚀 Executar ETL Principal
         env:
           # Autenticação MyCreator (prioridade: Email/Password)
           MYCREATOR_EMAIL: ${{ secrets.MYCREATOR_EMAIL }}
