@@ -20,6 +20,7 @@ from dataclasses import asdict
 
 import pandas as pd
 import re
+import requests
 
 # Força output imediato no terminal (sem buffer)
 sys.stdout.reconfigure(line_buffering=True)
@@ -399,6 +400,25 @@ def run_etl() -> bool:
         logger.info(f"📄 Sheets: https://docs.google.com/spreadsheets/d/{config.google_sheet_id}")
         logger.info("=" * 60)
         
+        # =====================================================================
+        # ETAPA 4: ACIONAR GOOGLE APPS SCRIPT
+        # =====================================================================
+        if config.apps_script_url:
+            logger.info("\n🔄 ACIONANDO GOOGLE APPS SCRIPT...")
+            logger.info(f"🌐 URL: {config.apps_script_url}")
+            try:
+                response = requests.get(config.apps_script_url, timeout=30)
+                if response.status_code == 200:
+                    try:
+                        resp_json = response.json()
+                        logger.info(f"✅ Google Apps Script executado com sucesso: {resp_json}")
+                    except ValueError:
+                        logger.info("✅ Google Apps Script executado com sucesso (sem JSON).")
+                else:
+                    logger.warning(f"⚠️ App Script retornou status HTTP {response.status_code}")
+            except Exception as e:
+                logger.error(f"❌ Erro ao acionar Apps Script: {e}")
+                
         return True
         
     except Exception as e:

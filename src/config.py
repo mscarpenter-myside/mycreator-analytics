@@ -53,6 +53,9 @@ class Config:
     fetch_plans_endpoint: str = "/backend/fetchPlans"
     analytics_endpoint: str = "/backend/analytics/campaignLabelAnalytics/getPlannerAnalytics"
     
+    # Automations
+    apps_script_url: Optional[str] = None
+    
     def __post_init__(self):
         """Validações após inicialização."""
         # Valida que tem pelo menos uma forma de autenticação
@@ -147,6 +150,9 @@ def get_config() -> Config:
         posts_limit=int(os.environ.get("POSTS_LIMIT", "50")),
         write_mode=os.environ.get("WRITE_MODE", "overwrite"),
         debug_mode=os.environ.get("DEBUG_MODE", "false").lower() == "true",
+        
+        # Automations
+        apps_script_url=os.environ.get("APPS_SCRIPT_URL", None),
     )
 
 

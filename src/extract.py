@@ -621,6 +621,13 @@ class MyCreatorExtractor:
                 permalink = post_item.get("link", "")
                 account_id = post_item.get("platform_id")  # Chave para Analytics
                 
+                # Validação de Perfil Ativo (Filtro Anti-Ghosting)
+                # Verifica se a conta do post ainda existe no mapa de contas cadastradas do Workspace
+                # Usa string fixa para comparação nas chaves
+                if not account_id or str(account_id) not in [str(k) for k in follower_map.keys()]:
+                    logger.debug(f"   ⏩ Ignorando post de {profile_name} (Conta não está mais ativa no Workspace)")
+                    continue
+                
                 # Cria objeto PostData com timestamp de extração (horário de Brasília)
                 tz_brasilia = timezone(timedelta(hours=-3))
                 extraction_ts = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
