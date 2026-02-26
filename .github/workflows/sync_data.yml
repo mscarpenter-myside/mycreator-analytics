@@ -2,9 +2,10 @@ name: Sync Data - MyCreator Analytics
 
 on:
   schedule:
-    # Roda todo dia às 07:15 BRT (10:15 UTC) e às 16:15 BRT (19:15 UTC)
+    # Roda todo dia às 07:15 BRT (10:15 UTC), 11:15 BRT (14:15 UTC) e às 16:15 BRT (19:15 UTC)
     # 45 mins antes do ETL principal
     - cron: '15 10 * * *'
+    - cron: '15 14 * * *'
     - cron: '15 19 * * *'
   
   # Permite execução manual

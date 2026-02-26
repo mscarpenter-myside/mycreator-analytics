@@ -440,7 +440,7 @@ class MyCreatorExtractor:
         Chama getSummary com cada conta individual para obter o follower_count.
         
         Returns:
-            Dict mapeando platform_identifier (str) -> followers (int)
+            Dict mapeando platform_identifier (str) -> {'followers': int, 'name': str}
         """
         follower_map = {}
         
@@ -503,7 +503,10 @@ class MyCreatorExtractor:
                         data = resp.json()
                         summary = data.get("summary", {})
                         followers = summary.get("followers", 0)
-                        follower_map[ig_id] = followers
+                        follower_map[ig_id] = {
+                            "followers": followers,
+                            "name": name
+                        }
                         logger.info(f"   👤 {name}: {followers:,} seguidores")
                     else:
                         logger.warning(f"   ⚠️ getSummary para {name}: {resp.status_code}")
@@ -621,11 +624,15 @@ class MyCreatorExtractor:
                 permalink = post_item.get("link", "")
                 account_id = post_item.get("platform_id")  # Chave para Analytics
                 
-                # Validação de Perfil Ativo (Filtro Anti-Ghosting)
-                # Verifica se a conta do post ainda existe no mapa de contas cadastradas do Workspace
-                # Usa string fixa para comparação nas chaves
-                if not account_id or str(account_id) not in [str(k) for k in follower_map.keys()]:
-                    logger.debug(f"   ⏩ Ignorando post de {profile_name} (Conta não está mais ativa no Workspace)")
+                # =========================================================================
+                # NOVO FILTRO ANTI-GHOSTING BASEADO NO NOME DO PERFIL
+                # Como a aba Publisher mantém posts de contas excluídas, a gente
+                # varre os nomes ativos do Workspace obtidos pelo fetchSocialAccounts.
+                # Se o nome do perfil do post não bater com nenhum ativo, é ignorado.
+                # =========================================================================
+                active_profile_names = [info["name"].lower() for info in follower_map.values()]
+                if profile_name.lower() not in active_profile_names:
+                    logger.debug(f"   ⏩ Ignorando post de {profile_name} (Conta não consta mais no Workspace MyCreator)")
                     continue
                 
                 # Cria objeto PostData com timestamp de extração (horário de Brasília)
@@ -633,7 +640,9 @@ class MyCreatorExtractor:
                 extraction_ts = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
                 
                 # Busca follower count do perfil deste post
-                post_follower_count = follower_map.get(str(account_id), 0) if account_id else 0
+                post_follower_count = 0
+                if account_id and str(account_id) in follower_map:
+                    post_follower_count = follower_map[str(account_id)]["followers"]
                 
                 post_data = PostData(
                     internal_id=internal_id,

@@ -2,8 +2,9 @@ name: Daily ETL - MyCreator Analytics
 
 on:
   schedule:
-    # Roda todo dia às 08:00 BRT (11:00 UTC) e às 17:00 BRT (20:00 UTC)
+    # Roda todo dia às 08:00 BRT (11:00 UTC), 12:05 BRT (15:05 UTC) e às 17:00 BRT (20:00 UTC)
     - cron: '0 11 * * *'
+    - cron: '5 15 * * *'
     - cron: '0 20 * * *'
   
   # Permite execução manual
