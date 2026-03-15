@@ -68,8 +68,9 @@ def run_etl() -> bool:
         audience_growth_data = extractor.extract_audience_growth()
         
         if not all_posts and not audience_growth_data:
-            logger.warning("⚠️ Nada extraído (nem posts, nem crescimento de seguidores).")
-            return False
+            logger.warning("⚠️ Nada novo extraído nesta rodada. Prosseguindo para verificar sincronização cloud...")
+        
+        # Converte para DataFrame mesmo se estiver vazio para evitar erros abaixo
         
         # =====================================================================
         # ETAPA 2: TRANSFORM
@@ -463,6 +464,7 @@ def run_etl() -> bool:
                 db = SupabaseDatabase(config.supabase_uri)
                 db.save_posts(df_consolidated, table_name="posts_final")
                 db.close()
+                logger.info(f"✅ SUCESSO: {len(df_consolidated)} posts sincronizados no Supabase (tabela: posts_final).")
             else:
                 logger.warning("⚠️ Não foi possível ler a aba 'base_looker_studio_posts'.")
 
@@ -483,7 +485,7 @@ def run_etl() -> bool:
                 db = SupabaseDatabase(config.supabase_uri)
                 db.save_posts(df_growth_sheet, table_name="seguidores_history")
                 db.close()
-                logger.info(f"✅ Histórico de seguidores sincronizado ({len(df_growth_sheet)} linhas).")
+                logger.info(f"✅ SUCESSO: {len(df_growth_sheet)} linhas de histórico sincronizadas no Supabase (tabela: seguidores_history).")
             else:
                 logger.warning("⚠️ Não foi possível ler a aba 'crescimento_seguidores'.")
         

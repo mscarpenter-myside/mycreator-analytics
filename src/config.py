@@ -162,9 +162,23 @@ def get_config() -> Config:
     )
 
 def _sanitize_uri(uri: str) -> str:
-    """Sanitiza a URI do banco de dados encodando a senha."""
-    if not uri or "://" not in uri:
+    """Sanitiza a URI do banco de dados encodando a senha e garantindo o driver postgresql+psycopg2."""
+    if not uri:
+        return ""
+    
+    # Remove aspas que podem vir do .env
+    uri = uri.strip("'\" ")
+        
+    if "://" not in uri:
         return uri
+    
+    # Garante o uso do driver psycopg2 (necessário para o SQLAlchemy)
+    if uri.startswith("postgresql://"):
+        uri = uri.replace("postgresql://", "postgresql+psycopg2://", 1)
+    elif not uri.startswith("postgresql+psycopg2://"):
+         # Se começar com postgres:// (padrão antigo do Heroku/DigitalOcean)
+         if uri.startswith("postgres://"):
+             uri = uri.replace("postgres://", "postgresql+psycopg2://", 1)
     
     try:
         import urllib.parse
@@ -202,12 +216,13 @@ def setup_logging(debug: bool = False) -> logging.Logger:
     """
     level = logging.DEBUG if debug else logging.INFO
     
+    import sys
     logging.basicConfig(
         level=level,
         format="%(asctime)s | %(levelname)-8s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         handlers=[
-            logging.StreamHandler()
+            logging.StreamHandler(sys.stdout)
         ]
     )
     
