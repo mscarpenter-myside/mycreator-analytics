@@ -122,3 +122,5 @@ As tabelas no Supabase são espelhadas a partir das abas consolidadas do Google 
 - **data (TEXT)**: Data histórica.
 - **cidade, perfil (TEXT)**: Dimensões de segmentação.
 - **seguidores, variacao_diaria (INTEGER)**: Métricas de audiência.
+
+**Engenharia de Conteúdo & Automação**

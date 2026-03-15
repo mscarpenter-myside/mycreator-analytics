@@ -94,8 +94,9 @@ A infraestrutura na nuvem foi particionada em dois cronogramas (Workflows) indep
 
 ## 📊 Estrutura de Dados
 
-- Consulte [`db_docs.md`](Docs/db_docs.md) para a documentação detalhada das tabelas SQL.
-- Consulte [`DOC_TECNICA.md`](Docs/DOC_TECNICA.md) para detalhes dos endpoints MyCreator.
+- Consulte [`database-guide.md`](Docs/database-guide.md) para a documentação detalhada das tabelas SQL.
+- Consulte [`architecture.md`](Docs/architecture.md) para detalhes da arquitetura e fluxos.
+- Consulte [`data-dictionary.md`](Docs/data-dictionary.md) para o dicionário de campos.
 
 ---
 

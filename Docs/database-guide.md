@@ -97,3 +97,5 @@ Para garantir o funcionamento correto da sincronização em ambientes Docker/WSL
 
 
 Como os dados estão em **PostgreSQL**, o Claude tem total precisão para rodar cálculos sumários e estatísticos complexos.
+
+**Engenharia de Conteúdo & Automação**
