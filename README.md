@@ -26,6 +26,25 @@ Monitoramento histórico contínuo da flutuação da audiência agregada por dia
 
 ---
 
+## ☁️ Sincronização Cloud (Supabase)
+
+O pipeline agora inclui uma etapa de **Sincronização em Nuvem** que espelha os dados consolidados do Google Sheets em um banco de dados PostgreSQL no Supabase. Isso permite que os dados sejam acessados em tempo real via **Claude MCP** e **Looker Studio**.
+
+### Como verificar a integridade:
+Implementamos um script dedicado para validar se o Google Sheets e o Supabase estão em sincronia:
+```bash
+python3 verify_sync.py
+```
+Este script valida não apenas a contagem de linhas, mas também a integridade do primeiro e último registro de cada tabela.
+
+### Requisitos Técnicos para Estabilidade (WSL):
+Para evitar falhas de conexão comuns em ambientes WSL, o projeto utiliza:
+- **IPv4 Forçado**: Conexão otimizada via IPv4.
+- **Transaction Pooler (Porta 6543)**: Para maior estabilidade.
+- **URI Sanitization**: Tratamento automático de aspas e drivers no `.env`.
+
+---
+
 ## 🛠️ Como Executar Localmente
 
 1.  **Clone o repositório**
@@ -49,6 +68,7 @@ Monitoramento histórico contínuo da flutuação da audiência agregada por dia
 
 4.  **Configure o ambiente (.env)**
     Crie um arquivo `.env` na raiz com as credenciais (veja `.env.example`).
+    **Nota**: A URI do Supabase é essencial para a sincronização cloud.
 
 5.  **Execute o ETL**
     ```bash
@@ -59,25 +79,28 @@ Monitoramento histórico contínuo da flutuação da audiência agregada por dia
 
 ## ⚙️ Configuração (GitHub Actions)
 
-A infraestrutura na nuvem foi particionada em dois cronogramas (Workflows) independentes para burlar nativamente o longo delay entre a API das redes rociais e a plataforma do MyCreator:
+A infraestrutura na nuvem foi particionada em dois cronogramas (Workflows) independentes:
 
-1. **`sync_data.yml`**: Roda às 07:15 BRT e 16:15 BRT. Trata-se de um robô *trigger* rápido que mapeia IDs e injeta sinais de atualização remota para preparar os dados.
-2. **`daily_etl.yml`**: Roda às 08:00 BRT e 17:00 BRT. É o extrator principal que aguarda a plataforma renderizar os dados por 45 minutos antes de começar a raspagem massiva.
+1. **`sync_data.yml`**: Roda às 07:15 BRT e 16:15 BRT. Robô *trigger* rápido.
+2. **`daily_etl.yml`**: Roda às 08:00 BRT e 17:00 BRT. Extrator principal que consolida dados e sincroniza com o Supabase.
 
 ### Variáveis de Ambiente Necessárias (Secrets)
 *   `MYCREATOR_EMAIL` / `MYCREATOR_PASSWORD`: Credenciais de acesso.
 *   `GOOGLE_SHEET_ID`: ID da planilha de destino.
-*   `GCP_SA_KEY`: JSON da Service Account do Google Cloud (base64 ou raw).
+*   `GCP_SA_KEY`: JSON da Service Account do Google Cloud.
+*   `URI`: String de conexão do Supabase (PostgreSQL).
 
 ---
 
 ## 📊 Estrutura de Dados
 
-Consulte o arquivo [`DOC_TECNICA.md`](Docs/DOC_TECNICA.md) para a documentação técnica completa de cada métrica e endpoint utilizado.
+- Consulte [`db_docs.md`](Docs/db_docs.md) para a documentação detalhada das tabelas SQL.
+- Consulte [`DOC_TECNICA.md`](Docs/DOC_TECNICA.md) para detalhes dos endpoints MyCreator.
 
 ---
 
 **Engenharia de Conteúdo & Automação**
+
 
 
 

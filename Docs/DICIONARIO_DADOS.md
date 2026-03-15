@@ -21,6 +21,10 @@ graph TD
     H1 -->|Upload| GS3[📄 Aba: analise_hashtag]
     T1 -->|Upload| GS4[📄 Aba: top_posts_mycreator]
     CS1 -->|Upload| GS5[📄 Aba: crescimento_seguidores]
+
+    GS1 -->|GAS Consolidation| GS6[📄 Aba: base_looker_studio_posts]
+    GS6 -->|Sync Python| SB1[☁️ Supabase: posts_final]
+    GS5 -->|Sync Python| SB2[☁️ Supabase: seguidores_history]
 ```
 
 ---
@@ -49,6 +53,10 @@ graph TD
 | **id_instagram** | Identificador único do post (excl. ID). | `1784...` |
 | **link** | URL direta para o post. | `https://instagram.com/p/...` |
 | **timestamp** | Data da última leitura pelo robô. | `13/02/2026 02:00:00` |
+| **tipo_midia** | Categoria técnica do post. | `VIDEO`, `REELS`, `IMAGE` |
+| **categoria_conteudo** | Segmentação por tema do conteúdo. | `Venda`, `Dica`, `Papo` |
+| **linha_editorial** | Direcionamento editorial. | `Fomento`, `Autoridade` |
+| **titulo_referencia** | Título amigável para relatórios. | `Apartamento no Centro...` |
 
 ---
 
@@ -95,3 +103,22 @@ graph TD
 | **perfil** | Nome do perfil IG. | `myside.imoveis` |
 | **seguidores** | Total de seguidores no dia. | `3727` |
 | **variacao_diaria** | Ganho/perda de seguidores no dia. | `5` ou `-2` |
+
+---
+
+## ☁️ 5. Tabelas Supabase (SQL)
+
+As tabelas no Supabase são espelhadas a partir das abas consolidadas do Google Sheets.
+
+### Tabela: `posts_final`
+*Consolidação da aba `base_looker_studio_posts`*
+- **id_interno (TEXT)**: Chave primária de identificação.
+- **data_publicacao (TEXT)**: DD/MM/YYYY.
+- **curtidas, comentarios, salvos, compartilhamentos, alcance (INTEGER)**: Métricas limpas (removendo pontos separadores).
+- **taxa_engajamento, taxa_alcance (FLOAT/NUMERIC)**: Percentuais convertidos (Ex: 0.052).
+
+### Tabela: `seguidores_history`
+*Espelhamento da aba `crescimento_seguidores`*
+- **data (TEXT)**: Data histórica.
+- **cidade, perfil (TEXT)**: Dimensões de segmentação.
+- **seguidores, variacao_diaria (INTEGER)**: Métricas de audiência.

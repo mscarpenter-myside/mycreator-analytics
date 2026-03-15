@@ -34,6 +34,9 @@ Esta é a tabela principal de performance de posts.
 | `taxa_alcance` | NUMERIC | Reach Rate (Alcance / Seguidores) |
 | `titulo_referencia` | TEXT | Título consolidado pelo time |
 | `formato` | TEXT | Reels, Carrossel, Foto, etc. |
+| `tipo_midia` | TEXT | Tipo técnico de mídia (Reels, Feed, etc) |
+| `categoria_conteudo`| TEXT | Categoria do post |
+| `linha_editorial` | TEXT | Linha editorial (papo, venda, etc) |
 
 ---
 
@@ -62,5 +65,35 @@ No arquivo de configuração do MCP, utilize a URI fornecida no `.env` do projet
 - *"Claude, qual perfil teve o melhor crescimento de seguidores na última semana?"*
 - *"Gere um resumo de performance para a cidade de Florianópolis comparando Reels vs Carrossel."*
 - *"Quais posts tiveram taxa de engajamento acima da média?"*
+
+---
+
+## 4. Manutenção e Verificação de Sincronia
+
+Para garantir que o Supabase está exatamente igual ao Google Sheets, utilizamos a ferramenta de verificação de integridade.
+
+### Como rodar a verificação:
+No terminal (WSL), execute:
+```bash
+python3 verify_sync.py
+```
+O script irá comparar:
+- **Contagem de linhas** em ambas as fontes.
+- **Integridade de amostras**: Verifica se o primeiro e o último post da planilha existem no banco.
+
+---
+
+## 5. Notas Técnicas (WSL & Estabilidade)
+
+Para garantir o funcionamento correto da sincronização em ambientes Docker/WSL:
+
+1. **IPv4 Forçado**: O script força o uso de IPv4 no `src/database.py` para evitar falhas de conexão comuns no IPv6 do WSL.
+2. **Transaction Pooler**: Recomendamos o uso da porta `6543` no Supabase para maior estabilidade em operações de carga massiva.
+3. **Auto-Sanitize**: O arquivo `src/config.py` limpa aspas da URI e garante o driver `postgresql+psycopg2://` automaticamente.
+
+---
+
+## 6. Acesso Compartilhado (Claude MCP)
+
 
 Como os dados estão em **PostgreSQL**, o Claude tem total precisão para rodar cálculos sumários e estatísticos complexos.

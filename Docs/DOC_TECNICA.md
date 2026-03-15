@@ -31,11 +31,14 @@ graph TD
         B13("Top Posts (Rank)"):::etl
     end
 
-    subgraph Destination ["📊 Google Sheets (Pilares)"]
+    subgraph Destination ["📊 Destinos (Sheets & Cloud)"]
         C2[("Aba: dados_brutos")]:::storage
         C3[("Aba: analise_hashtag")]:::storage
         C11[("Aba: top_posts_mycreator")]:::storage
         C12[("Aba: crescimento_seguidores")]:::storage
+        C20[("Aba [CONSOLIDADA]: base_looker_studio_posts")]:::storage
+        D1[("☁️ Supabase: posts_final")]:::storage
+        D2[("☁️ Supabase: seguidores_history")]:::storage
     end
 
     A4 -->|Crescimento| C12
@@ -50,6 +53,9 @@ graph TD
     
     B2 -->|Rank Top 20| B13:::etl
     B13 --> C11:::storage
+
+    C20 -->|Sync Script| D1
+    C12 -->|Sync Script| D2
 ```
 
 ---
@@ -78,12 +84,21 @@ sequenceDiagram
         API-->>ETL: JSON { metrics }
     end
 
-    Note over ETL, Sheet: 🟢 FASE 3: Carga
+    Note over ETL, Sheet: 🟢 FASE 3: Carga Sheets
     ETL->>Sheet: load_to_sheets(df_posts, tab="dados_brutos")
     ETL->>Sheet: load_to_sheets(df_hashtags, tab="analise_hashtag")
     ETL->>Sheet: load_to_sheets(df_top_posts, tab="top_posts_mycreator")
     ETL->>Sheet: load_to_sheets(df_audience_growth, tab="crescimento_seguidores")
     Sheet-->>ETL: Success (200 OK)
+
+    Note over SYNC, Sheet: 🟢 FASE 4: Consolidação (GAS)
+    ETL->>API: GET (GAS_URL)
+    Note right of API: Google Apps Script roda consolidando dados...
+
+    Note over ETL, API: 🟢 FASE 5: Cloud Sync (Supabase)
+    ETL->>Sheet: Fetch base_looker_studio_posts
+    ETL->>API: SQLAlchemy UPSERT (Supabase)
+    ETL->>API: SQLAlchemy UPSERT (seguidores_history)
 ```
 
 ---
@@ -135,5 +150,12 @@ erDiagram
 *   **Aba crescimento_seguidores**: Monitoramento da flutuação da audiência global.
 
 ---
+
+## 🛠️ 4. Ferramentas de Verificação e Integridade
+
+Para garantir a confiabilidade do pipeline entre as diferentes plataformas, o projeto conta com:
+
+- **`test_connection_v2.py`**: Valida a conectividade SSH/Cloud e força protocolos IPv4 para ambientes WSL/Docker.
+- **`verify_sync.py`**: Realiza a paridade de dados, comparando contagens e a existência do primeiro/último registro entre Google Sheets e Supabase.
 
 **Engenharia de Conteúdo & Automação**
