@@ -74,6 +74,7 @@ class PostData:
     impressions: int = 0
     plays: int = 0
     engagement_rate: float = 0.0
+    reach_rate: float = 0.0
     
     # Métricas Avançadas (Reels/Video)
     video_duration: float = 0.0
@@ -323,7 +324,7 @@ class MyCreatorExtractor:
         }
         
         try:
-            resp = self._handle_401_and_retry("get", url, params=params, timeout=15)
+            resp = self._handle_401_and_retry("get", url, params=params, timeout=60)
             if resp.status_code == 200:
                 try:
                     data = resp.json()
@@ -687,10 +688,13 @@ class MyCreatorExtractor:
                         post_data.exits = metrics.get("exits", 0)
                         post_data.replies = metrics.get("replies", 0)
                         
-                        # Calcula taxa de engajamento
+                        # Calcula taxas
                         if post_data.reach > 0:
-                            engagement = post_data.likes + post_data.saves + post_data.comments
-                            post_data.engagement_rate = round((engagement / post_data.reach) * 100, 2)
+                            engagement = post_data.likes + post_data.saves + post_data.comments + post_data.shares
+                            post_data.engagement_rate = round((engagement / post_data.reach), 4)
+                            
+                            if post_data.follower_count > 0:
+                                post_data.reach_rate = round((post_data.reach / post_data.follower_count), 4)
                         
                         logger.info(f"   ✅ [{i}/{total}] {profile_name}: {metrics['likes']} Likes | {metrics['reach']} Reach")
                     else:

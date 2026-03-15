@@ -29,7 +29,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-
       - name: 🚀 Executar ETL Principal
         env:
           # Autenticação MyCreator (prioridade: Email/Password)
@@ -43,6 +42,10 @@ jobs:
           # Google Sheets
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
+          
+          # Supabase (PostgreSQL)
+          URI: ${{ secrets.URI }}
           
           # Configurações
           SHEET_TAB_NAME: "dados_brutos"
@@ -51,6 +54,3 @@ jobs:
           DEBUG_MODE: "false"
         run: |
           python run_etl.py
-
-      - name: 📊 Disparar ETL no Google Sheets
-        run: curl -L "https://script.google.com/macros/s/AKfycbytA2FiFRROcWKaeKGOye4Teubm6JJ3xUak5L_cOLccEPmnryGhjBA6vCa56xZsilIQMw/exec"

@@ -43,6 +43,9 @@ class Config:
     sheet_tab_name: str
     gcp_credentials: Optional[dict]
     
+    # Supabase (PostgreSQL)
+    supabase_uri: str
+    
     # Configurações de execução
     posts_limit: int
     write_mode: str  # "overwrite" ou "append"
@@ -153,7 +156,38 @@ def get_config() -> Config:
         
         # Automations
         apps_script_url=os.environ.get("APPS_SCRIPT_URL", None),
+        
+        # Supabase
+        supabase_uri=_sanitize_uri(os.environ.get("URI", "")),
     )
+
+def _sanitize_uri(uri: str) -> str:
+    """Sanitiza a URI do banco de dados encodando a senha."""
+    if not uri or "://" not in uri:
+        return uri
+    
+    try:
+        import urllib.parse
+        # Divide esquema://corpo
+        scheme, remainder = uri.split("://", 1)
+        
+        # Se não houver autenticação (ex: sqlite ou proxy local)
+        if "@" not in remainder:
+            return uri
+            
+        # Divide usuario:senha @ host...
+        auth, host_part = remainder.rsplit("@", 1)
+        
+        if ":" in auth:
+            user, password = auth.split(":", 1)
+            # Decodifica se já estiver encodada e encoda novamente de forma limpa
+            clean_pass = urllib.parse.unquote(password)
+            encoded_pass = urllib.parse.quote_plus(clean_pass)
+            return f"{scheme}://{user}:{encoded_pass}@{host_part}"
+        
+        return uri
+    except Exception:
+        return uri
 
 
 def setup_logging(debug: bool = False) -> logging.Logger:

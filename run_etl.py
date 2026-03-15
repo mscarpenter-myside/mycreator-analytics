@@ -28,7 +28,8 @@ sys.stdout.reconfigure(line_buffering=True)
 
 from src.config import get_config, setup_logging
 from src.extract import MyCreatorExtractor, TARGET_WORKSPACES
-from src.load import load_to_sheets
+from src.load import load_to_sheets, get_sheet_data
+from src.database import SupabaseDatabase
 
 
 def run_etl() -> bool:
@@ -132,6 +133,7 @@ def run_etl() -> bool:
             "comments": "comentarios",
             "saves": "salvos",
             "shares": "compartilhamentos",
+            "engagement_rate": "taxa_engajamento",
             
             # PERFORMANCE
             "reach": "alcance",
@@ -145,14 +147,12 @@ def run_etl() -> bool:
             "extraction_timestamp": "timestamp",
         }
         
-        # Seleciona e renomeia colunas existentes (preserva ordem do dict)
-        # Calcula Reach Rate antes de exportar
-        if not df_posts.empty and "reach" in df_posts.columns and "follower_count" in df_posts.columns:
-            df_posts["reach_rate"] = df_posts.apply(
-                lambda x: round((x["reach"] / x["follower_count"]), 4) if x["follower_count"] > 0 else 0, 
-                axis=1
-            )
+        # Garante que as colunas existam antes do mapeamento para evitar erros
+        for col in ["reach", "engagement_rate", "reach_rate", "follower_count"]:
+            if col not in df_posts.columns:
+                df_posts[col] = 0
         
+        # Seleciona e renomeia colunas (preserva a ordem abaixo)
         columns_to_export = [col for col in column_mapping.keys() if col in df_posts.columns]
         df_final = df_posts[columns_to_export].rename(columns=column_mapping)
         
@@ -404,20 +404,91 @@ def run_etl() -> bool:
         # ETAPA 4: ACIONAR GOOGLE APPS SCRIPT
         # =====================================================================
         if config.apps_script_url:
-            logger.info("\n🔄 ACIONANDO GOOGLE APPS SCRIPT...")
+            logger.info("\n🔄 ETAPA 4: ACIONANDO GOOGLE APPS SCRIPT (CONSOLIDAÇÃO)...")
             logger.info(f"🌐 URL: {config.apps_script_url}")
             try:
-                response = requests.get(config.apps_script_url, timeout=30)
+                # Aumentamos o timeout para 60s pois o GAS pode ser lento para consolidar
+                response = requests.get(config.apps_script_url, timeout=60, allow_redirects=True)
                 if response.status_code == 200:
                     try:
                         resp_json = response.json()
                         logger.info(f"✅ Google Apps Script executado com sucesso: {resp_json}")
                     except ValueError:
                         logger.info("✅ Google Apps Script executado com sucesso (sem JSON).")
+                    
+                    # Wait for GAS to complete (5-10 seconds as planned)
+                    logger.info("⏳ Aguardando 15s para consolidação finalizar no Google...")
+                    time.sleep(15)
                 else:
-                    logger.warning(f"⚠️ App Script retornou status HTTP {response.status_code}")
+                    logger.warning(f"⚠️ Google Apps Script retornou status HTTP {response.status_code}")
+                    logger.warning("⚠️ Prosseguindo para sincronização com dados possivelmente desatualizados.")
             except Exception as e:
                 logger.error(f"❌ Erro ao acionar Apps Script: {e}")
+        # =====================================================================
+        # ETAPA 5: FETCH CONSOLIDATED DATA & SAVE TO SUPABASE
+        # =====================================================================
+        logger.info("\n🗄️ ETAPA 5: SINCRONIZAÇÃO CLOUD (SUPABASE)")
+        
+        try:
+            # 5.1 Sincronizar Posts Consolidados
+            df_consolidated = get_sheet_data(config, "base_looker_studio_posts")
+            
+            if not df_consolidated.empty:
+                logger.info(f"🧹 Limpando e formatando posts para Supabase...")
+                
+                cols_to_clean = ["curtidas", "comentarios", "salvos", "compartilhamentos", "alcance"]
+                cols_rate = ["taxa_engajamento", "taxa_alcance"]
+                
+                for col in cols_to_clean:
+                    if col in df_consolidated.columns:
+                        df_consolidated[col] = pd.to_numeric(
+                            df_consolidated[col].astype(str).str.replace(".", "").replace("", "0"), 
+                            errors='coerce'
+                        ).fillna(0).astype(int)
+                        
+                for col in cols_rate:
+                    if col in df_consolidated.columns:
+                        def clean_rate(val):
+                            if not val: return 0.0
+                            val_str = str(val).replace("%", "").replace(",", ".").strip()
+                            try:
+                                f_val = float(val_str)
+                                if "%" in str(val) or f_val > 1.0:
+                                    return round(f_val / 100, 4)
+                                return round(f_val, 4)
+                            except:
+                                return 0.0
+                        df_consolidated[col] = df_consolidated[col].apply(clean_rate)
+                
+                db = SupabaseDatabase(config.supabase_uri)
+                db.save_posts(df_consolidated, table_name="posts_final")
+                db.close()
+            else:
+                logger.warning("⚠️ Não foi possível ler a aba 'base_looker_studio_posts'.")
+
+            # 5.2 Sincronizar Histórico de Seguidores (NOVO)
+            df_growth_sheet = get_sheet_data(config, "crescimento_seguidores")
+            if not df_growth_sheet.empty:
+                logger.info(f"🧹 Limpando e formatando histórico de seguidores p/ Supabase...")
+                
+                # Converte colunas numéricas do crescimento
+                numeric_growth_cols = ["seguidores", "variacao_diaria"]
+                for col in numeric_growth_cols:
+                    if col in df_growth_sheet.columns:
+                        df_growth_sheet[col] = pd.to_numeric(
+                            df_growth_sheet[col].astype(str).str.replace(".", ""), 
+                            errors='coerce'
+                        ).fillna(0).astype(int)
+                
+                db = SupabaseDatabase(config.supabase_uri)
+                db.save_posts(df_growth_sheet, table_name="seguidores_history")
+                db.close()
+                logger.info(f"✅ Histórico de seguidores sincronizado ({len(df_growth_sheet)} linhas).")
+            else:
+                logger.warning("⚠️ Não foi possível ler a aba 'crescimento_seguidores'.")
+        
+        except Exception as e:
+            logger.error(f"❌ Erro crítico na sincronização Supabase: {e}")
                 
         return True
         

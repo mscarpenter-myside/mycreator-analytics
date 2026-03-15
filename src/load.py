@@ -294,6 +294,16 @@ class GoogleSheetsLoader:
         except Exception:
             return 0
     
+    def get_all_values(self) -> list[list]:
+        """Retorna todos os valores da worksheet atual."""
+        if not self.worksheet:
+            return []
+        try:
+            return self.worksheet.get_all_values()
+        except Exception as e:
+            logger.error(f"❌ Erro ao ler valores: {e}")
+            return []
+
     def close(self):
         """Fecha conexões (cleanup)."""
         self.worksheet = None
@@ -317,16 +327,45 @@ def load_to_sheets(df: pd.DataFrame, config: Config, tab_name: str = None) -> bo
     loader = GoogleSheetsLoader(config)
     
     try:
-        # Conecta
         if not loader.connect():
             return False
         
-        # Abre planilha
         if not loader.open_spreadsheet(tab_name):
             return False
         
-        # Carrega dados
         return loader.load(df)
+        
+    finally:
+        loader.close()
+
+def get_sheet_data(config: Config, tab_name: str) -> pd.DataFrame:
+    """
+    Lê dados de uma aba específica e retorna como DataFrame.
+    
+    Args:
+        config: Configurações do ETL
+        tab_name: Nome da aba
+        
+    Returns:
+        pd.DataFrame: Dados da aba
+    """
+    loader = GoogleSheetsLoader(config)
+    
+    try:
+        if not loader.connect():
+            return pd.DataFrame()
+        
+        if not loader.open_spreadsheet(tab_name):
+            return pd.DataFrame()
+            
+        data = loader.get_all_values()
+        
+        if not data:
+            return pd.DataFrame()
+            
+        # Converte para DataFrame usando a primeira linha como header
+        df = pd.DataFrame(data[1:], columns=data[0])
+        return df
         
     finally:
         loader.close()
