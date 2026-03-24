@@ -1218,3 +1218,167 @@ class MyCreatorExtractor:
         
         logger.info(f"\n📊 Total: {len(all_rows)} registros de crescimento extraídos")
         return all_rows
+
+    # =========================================================================
+    # EXTRAÇÃO DE TOP POSTS DA ABA ANALYTICS (posts orgânicos + ContentStudio)
+    # =========================================================================
+    def fetch_analytics_top_posts(self, workspace_id: str, workspace_name: str,
+                                   date_range: str, post_type: str = "total_engagement") -> List[dict]:
+        """
+        Busca top posts da aba Analytics do MyCreator.
+
+        Diferente do fetchPlans, retorna TODOS os top posts do período —
+        incluindo posts publicados diretamente no Instagram (orgânicos) e
+        posts agendados via ContentStudio.
+
+        Endpoint: /backend/analytics/overview/getTopPosts
+
+        Args:
+            workspace_id:   ID do workspace
+            workspace_name: Nome do workspace (para rastreabilidade)
+            date_range:     Período no formato "YYYY-MM-DD - YYYY-MM-DD"
+            post_type:      Métrica de ranking:
+                            "reach" | "total_engagement" | "impressions"
+
+        Returns:
+            Lista de dicts normalizados com dados do post.
+        """
+        url = f"{self.config.base_url}/backend/analytics/overview/getTopPosts"
+
+        try:
+            # 1. Busca contas Instagram do workspace
+            resp = self._handle_401_and_retry(
+                "post",
+                f"{self.config.base_url}/backend/fetchSocialAccounts",
+                json={"workspace_id": workspace_id},
+                timeout=15
+            )
+            if resp.status_code != 200:
+                logger.warning(f"⚠️ fetchSocialAccounts falhou para {workspace_name}: {resp.status_code}")
+                return []
+
+            social_data = resp.json()
+            ig_data = social_data.get("instagram", {})
+            ig_accounts_raw = ig_data.get("accounts", []) if isinstance(ig_data, dict) else []
+
+            if not ig_accounts_raw:
+                logger.warning(f"⚠️ Nenhuma conta IG em {workspace_name}")
+                return []
+
+            # Extrai IDs e monta mapa ig_id → nome do perfil
+            ig_ids = []
+            id_to_name = {}
+            for acc in ig_accounts_raw:
+                ig_id = str(acc.get("platform_identifier") or acc.get("instagram_id") or "")
+                name = acc.get("name", "Unknown")
+                if ig_id:
+                    ig_ids.append(ig_id)
+                    id_to_name[ig_id] = name
+
+            if not ig_ids:
+                return []
+
+            # 2. Chama getTopPosts
+            payload = {
+                "workspace_id": workspace_id,
+                "date": date_range,
+                "timezone": "America/Sao_Paulo",
+                "type": post_type,
+                "facebook_accounts": [],
+                "instagram_accounts": ig_ids,
+                "linkedin_accounts": [],
+                "tiktok_accounts": [],
+                "youtube_accounts": [],
+                "pinterest_accounts": [],
+                "twitter_accounts": [],
+                "gmb_accounts": [],
+                "tumblr_accounts": []
+            }
+
+            resp = self._handle_401_and_retry("post", url, json=payload, timeout=30)
+
+            if resp.status_code != 200:
+                logger.warning(f"⚠️ getTopPosts {workspace_name} ({post_type}): {resp.status_code}")
+                return []
+
+            data = resp.json()
+            logger.debug(f"getTopPosts keys: {list(data.keys()) if isinstance(data, dict) else type(data)}")
+
+            # 3. Extrai lista de posts da resposta (estrutura flexível)
+            posts_raw = []
+            if isinstance(data, list):
+                posts_raw = data
+            elif isinstance(data, dict):
+                for key in ["top_posts", "posts", "data", "items", "results"]:
+                    if key in data and isinstance(data[key], list):
+                        posts_raw = data[key]
+                        break
+
+            if not posts_raw:
+                logger.debug(f"   ℹ️ Nenhum top post em {workspace_name} ({post_type})")
+                return []
+
+            # 4. Normaliza cada post
+            result = []
+            for p in posts_raw:
+                if not isinstance(p, dict):
+                    continue
+
+                media_id = str(
+                    p.get("id") or p.get("media_id") or p.get("external_id") or
+                    p.get("post_id") or ""
+                )
+
+                account_id = str(p.get("account_id") or p.get("ig_id") or p.get("instagram_id") or "")
+                profile_name = id_to_name.get(account_id, "") or p.get("username") or p.get("profile_name") or "Unknown"
+
+                published_at = (
+                    p.get("timestamp") or p.get("published_at") or
+                    p.get("created_time") or p.get("date") or ""
+                )
+
+                media_type = (
+                    p.get("media_type") or p.get("type") or
+                    p.get("post_type") or "IMAGE"
+                )
+
+                caption = p.get("caption") or p.get("message") or p.get("title") or ""
+
+                permalink = (
+                    p.get("permalink") or p.get("link") or
+                    p.get("url") or p.get("post_url") or ""
+                )
+
+                likes = self._safe_int(p, ["likes", "like_count", "likeCount"])
+                comments = self._safe_int(p, ["comments", "comments_count", "comment_count"])
+                saves = self._safe_int(p, ["saved", "saves", "save_count"])
+                shares = self._safe_int(p, ["shares", "share_count"])
+                reach = self._safe_int(p, ["reach", "reach_count"])
+                impressions = self._safe_int(p, ["impressions", "impression_count"])
+                total_engagement = self._safe_int(p, ["total_interactions", "engagement", "total_engagement"])
+                if total_engagement == 0:
+                    total_engagement = likes + comments + saves + shares
+
+                result.append({
+                    "external_id": media_id,
+                    "workspace_name": workspace_name,
+                    "profile_name": profile_name,
+                    "published_at": published_at,
+                    "media_type": media_type,
+                    "caption": caption,
+                    "permalink": permalink,
+                    "likes": likes,
+                    "comments": comments,
+                    "saves": saves,
+                    "shares": shares,
+                    "reach": reach,
+                    "impressions": impressions,
+                    "total_engagement": total_engagement,
+                })
+
+            logger.debug(f"   📊 {workspace_name} ({post_type}): {len(result)} top posts analytics")
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ Erro em fetch_analytics_top_posts ({workspace_name}, {post_type}): {e}")
+            return []

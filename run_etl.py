@@ -303,43 +303,127 @@ def run_etl() -> bool:
 
 
         # =========================================================================
-        # 10. TOP POSTS MYCREATOR (Rankings)
+        # 10. TOP POSTS GERAL (ContentStudio + Orgânicos da aba Analytics)
         # =========================================================================
+
+        # --- 10.1 Top Posts do ContentStudio (via fetchPlans) ---
         if not df_posts.empty:
-            # Garantir a criação da coluna engagement_total para rankeamento
             interaction_cols = ['likes', 'comments', 'shares', 'saves']
             actual_cols = [c for c in interaction_cols if c in df_posts.columns]
             df_posts['engagement_total'] = df_posts[actual_cols].fillna(0).sum(axis=1) if actual_cols else 0
-            
-            # Vamos pegar o Top 20 de cada métrica
-            top_reach = df_posts.nlargest(20, 'reach')[['permalink', 'reach', 'title', 'profile_name', 'published_at', 'media_type']].copy()
+
+            top_reach = df_posts.nlargest(20, 'reach')[['permalink', 'reach', 'title', 'profile_name', 'published_at', 'media_type', 'external_id']].copy()
             top_reach['Rank_Tipo'] = 'alcance'
             top_reach = top_reach.rename(columns={'reach': 'Valor_Metrica'})
 
-            top_engage = df_posts.nlargest(20, 'engagement_total')[['permalink', 'engagement_total', 'title', 'profile_name', 'published_at', 'media_type']].copy()
+            top_engage = df_posts.nlargest(20, 'engagement_total')[['permalink', 'engagement_total', 'title', 'profile_name', 'published_at', 'media_type', 'external_id']].copy()
             top_engage['Rank_Tipo'] = 'engajamento'
             top_engage = top_engage.rename(columns={'engagement_total': 'Valor_Metrica'})
 
-            top_impressions = df_posts.nlargest(20, 'impressions')[['permalink', 'impressions', 'title', 'profile_name', 'published_at', 'media_type']].copy()
+            top_impressions = df_posts.nlargest(20, 'impressions')[['permalink', 'impressions', 'title', 'profile_name', 'published_at', 'media_type', 'external_id']].copy()
             top_impressions['Rank_Tipo'] = 'impressoes'
             top_impressions = top_impressions.rename(columns={'impressions': 'Valor_Metrica'})
 
-            # Concatena
-            df_top_posts = pd.concat([top_reach, top_engage, top_impressions])
-            
-            # Formata
-            df_top_posts['Valor_Metrica'] = df_top_posts['Valor_Metrica'].astype(int)
-            df_top_posts = df_top_posts[['Rank_Tipo', 'Valor_Metrica', 'profile_name', 'published_at', 'media_type', 'title', 'permalink']]
-            df_top_posts = df_top_posts.rename(columns={
+            df_top_cs = pd.concat([top_reach, top_engage, top_impressions])
+            df_top_cs['Valor_Metrica'] = df_top_cs['Valor_Metrica'].astype(int)
+            df_top_cs = df_top_cs[['Rank_Tipo', 'Valor_Metrica', 'profile_name', 'published_at', 'media_type', 'title', 'permalink', 'external_id']]
+            df_top_cs = df_top_cs.rename(columns={
                 'Rank_Tipo': 'rank_tipo',
                 'Valor_Metrica': 'valor_metrica',
                 'profile_name': 'perfil',
                 'published_at': 'data',
                 'media_type': 'formato',
                 'title': 'legenda_titulo',
-                'permalink': 'link'
+                'permalink': 'link',
+                'external_id': 'id_post',
             })
-            logger.info(f"✅ {len(df_top_posts)} Top Posts gerados.")
+            df_top_cs['fonte'] = 'mycreator'
+
+            # IDs dos posts ContentStudio para cruzamento com Analytics
+            mycreator_external_ids = set(df_posts['external_id'].dropna().astype(str))
+        else:
+            df_top_cs = pd.DataFrame()
+            mycreator_external_ids = set()
+
+        # --- 10.2 Top Posts da aba Analytics (orgânicos + ContentStudio) ---
+        logger.info("\n🏆 PROCESSANDO TOP POSTS ANALYTICS...")
+
+        from datetime import timedelta
+        now_brt = datetime.now()
+        analytics_end = now_brt.strftime("%Y-%m-%d")
+        analytics_start = (now_brt - timedelta(days=30)).strftime("%Y-%m-%d")
+        analytics_date_range = f"{analytics_start} - {analytics_end}"
+
+        # Mapeamento: tipo de analytics → rank_tipo PT-BR → coluna de métrica
+        ANALYTICS_TYPES = [
+            ("reach",             "alcance",     "reach"),
+            ("total_engagement",  "engajamento", "total_engagement"),
+            ("impressions",       "impressoes",  "impressions"),
+        ]
+
+        analytics_rows = []
+        for ws in TARGET_WORKSPACES:
+            for api_type, rank_tipo_label, metric_col in ANALYTICS_TYPES:
+                posts_analytics = extractor.fetch_analytics_top_posts(
+                    ws["id"], ws["name"], analytics_date_range, api_type
+                )
+                for p in posts_analytics:
+                    valor = p.get(metric_col, 0) or 0
+                    # Determina fonte: se o ID existe no ContentStudio → mycreator
+                    ext_id = str(p.get("external_id", ""))
+                    fonte = "mycreator" if ext_id and ext_id in mycreator_external_ids else "instagram_nativo"
+
+                    published_raw = p.get("published_at", "")
+                    try:
+                        data_fmt = pd.to_datetime(published_raw, errors='coerce').strftime("%d/%m/%Y")
+                    except Exception:
+                        data_fmt = str(published_raw)[:10] if published_raw else ""
+
+                    analytics_rows.append({
+                        "rank_tipo":      rank_tipo_label,
+                        "valor_metrica":  int(valor),
+                        "perfil":         p.get("profile_name", ""),
+                        "data":           data_fmt,
+                        "formato":        p.get("media_type", ""),
+                        "legenda_titulo": p.get("caption", "")[:100] if p.get("caption") else "",
+                        "link":           p.get("permalink", ""),
+                        "fonte":          fonte,
+                        "id_post":        ext_id,
+                    })
+                time.sleep(0.3)
+
+        df_top_analytics = pd.DataFrame(analytics_rows) if analytics_rows else pd.DataFrame()
+
+        # --- 10.3 Combina ContentStudio + Analytics e rankeia Top 20 por fonte por tipo ---
+        frames = [f for f in [df_top_cs, df_top_analytics] if not f.empty]
+        if frames:
+            df_combined = pd.concat(frames, ignore_index=True)
+
+            # Remove duplicatas por (link, rank_tipo, fonte) mantendo o maior valor
+            df_combined = df_combined.sort_values('valor_metrica', ascending=False)
+            df_combined = df_combined.drop_duplicates(subset=['link', 'rank_tipo', 'fonte'], keep='first')
+
+            # Top 20 por fonte por métrica (120 linhas total: 3 métricas × 2 fontes × 20)
+            slices = []
+            for rank_tipo in ['alcance', 'engajamento', 'impressoes']:
+                for fonte in ['mycreator', 'instagram_nativo']:
+                    subset = df_combined[
+                        (df_combined['rank_tipo'] == rank_tipo) &
+                        (df_combined['fonte'] == fonte)
+                    ]
+                    slices.append(subset.nlargest(20, 'valor_metrica'))
+
+            df_top_posts = pd.concat(slices, ignore_index=True)
+
+            # Garante colunas na ordem correta
+            df_top_posts = df_top_posts[['rank_tipo', 'fonte', 'valor_metrica', 'perfil', 'data', 'formato', 'legenda_titulo', 'link', 'id_post']]
+
+            # Normaliza valores da coluna formato
+            df_top_posts['formato'] = df_top_posts['formato'].replace('CAROUSEL_ALBUM', 'Carousel')
+
+            n_organico = (df_top_posts['fonte'] == 'instagram_nativo').sum()
+            n_mycreator = (df_top_posts['fonte'] == 'mycreator').sum()
+            logger.info(f"✅ {len(df_top_posts)} Top Posts gerados → {n_mycreator} mycreator | {n_organico} instagram_nativo")
         else:
             df_top_posts = pd.DataFrame()
 
