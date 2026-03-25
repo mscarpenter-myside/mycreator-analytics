@@ -376,7 +376,7 @@ def run_etl() -> bool:
 
                     published_raw = p.get("published_at", "")
                     try:
-                        data_fmt = pd.to_datetime(published_raw, errors='coerce').strftime("%d/%m/%y")
+                        data_fmt = pd.to_datetime(published_raw, errors='coerce').strftime("%d/%m/%Y")
                     except Exception:
                         data_fmt = str(published_raw)[:10] if published_raw else ""
 
@@ -406,7 +406,7 @@ def run_etl() -> bool:
             df_combined = df_combined.drop_duplicates(subset=['link', 'rank_tipo', 'fonte', 'workspace'], keep='first')
 
             # Normaliza data de df_top_cs (published_at ainda é raw) para DD/MM/AA
-            df_combined['data'] = pd.to_datetime(df_combined['data'], errors='coerce').dt.strftime("%d/%m/%y").fillna(df_combined['data'])
+            df_combined['data'] = pd.to_datetime(df_combined['data'], errors='coerce').dt.strftime("%d/%m/%Y").fillna(df_combined['data'])
 
             # Top 5 por fonte por workspace por métrica (máx 210 linhas: 3 × 2 × 7 × 5)
             slices = []
