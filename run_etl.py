@@ -338,6 +338,7 @@ def run_etl() -> bool:
                 'permalink': 'link',
                 'external_id': 'id_post',
             })
+            df_top_cs['data'] = pd.to_datetime(df_top_cs['data'], errors='coerce').dt.strftime("%d/%m/%Y")
             df_top_cs['fonte'] = 'mycreator'
 
             # IDs dos posts ContentStudio para cruzamento com Analytics
@@ -404,9 +405,6 @@ def run_etl() -> bool:
             # Remove duplicatas por (link, rank_tipo, fonte, workspace) mantendo o maior valor
             df_combined = df_combined.sort_values('valor_metrica', ascending=False)
             df_combined = df_combined.drop_duplicates(subset=['link', 'rank_tipo', 'fonte', 'workspace'], keep='first')
-
-            # Normaliza data de df_top_cs (published_at ainda é raw) para DD/MM/AA
-            df_combined['data'] = pd.to_datetime(df_combined['data'], errors='coerce').dt.strftime("%d/%m/%Y").fillna(df_combined['data'])
 
             # Top 5 por fonte por workspace por métrica (máx 210 linhas: 3 × 2 × 7 × 5)
             slices = []
