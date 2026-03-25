@@ -312,25 +312,26 @@ def run_etl() -> bool:
             actual_cols = [c for c in interaction_cols if c in df_posts.columns]
             df_posts['engagement_total'] = df_posts[actual_cols].fillna(0).sum(axis=1) if actual_cols else 0
 
-            top_reach = df_posts.nlargest(20, 'reach')[['permalink', 'reach', 'title', 'profile_name', 'published_at', 'media_type', 'external_id']].copy()
+            top_reach = df_posts.nlargest(50, 'reach')[['permalink', 'reach', 'title', 'profile_name', 'workspace_name', 'published_at', 'media_type', 'external_id']].copy()
             top_reach['Rank_Tipo'] = 'alcance'
             top_reach = top_reach.rename(columns={'reach': 'Valor_Metrica'})
 
-            top_engage = df_posts.nlargest(20, 'engagement_total')[['permalink', 'engagement_total', 'title', 'profile_name', 'published_at', 'media_type', 'external_id']].copy()
+            top_engage = df_posts.nlargest(50, 'engagement_total')[['permalink', 'engagement_total', 'title', 'profile_name', 'workspace_name', 'published_at', 'media_type', 'external_id']].copy()
             top_engage['Rank_Tipo'] = 'engajamento'
             top_engage = top_engage.rename(columns={'engagement_total': 'Valor_Metrica'})
 
-            top_impressions = df_posts.nlargest(20, 'impressions')[['permalink', 'impressions', 'title', 'profile_name', 'published_at', 'media_type', 'external_id']].copy()
+            top_impressions = df_posts.nlargest(50, 'impressions')[['permalink', 'impressions', 'title', 'profile_name', 'workspace_name', 'published_at', 'media_type', 'external_id']].copy()
             top_impressions['Rank_Tipo'] = 'impressoes'
             top_impressions = top_impressions.rename(columns={'impressions': 'Valor_Metrica'})
 
             df_top_cs = pd.concat([top_reach, top_engage, top_impressions])
             df_top_cs['Valor_Metrica'] = df_top_cs['Valor_Metrica'].astype(int)
-            df_top_cs = df_top_cs[['Rank_Tipo', 'Valor_Metrica', 'profile_name', 'published_at', 'media_type', 'title', 'permalink', 'external_id']]
+            df_top_cs = df_top_cs[['Rank_Tipo', 'Valor_Metrica', 'profile_name', 'workspace_name', 'published_at', 'media_type', 'title', 'permalink', 'external_id']]
             df_top_cs = df_top_cs.rename(columns={
                 'Rank_Tipo': 'rank_tipo',
                 'Valor_Metrica': 'valor_metrica',
                 'profile_name': 'perfil',
+                'workspace_name': 'workspace',
                 'published_at': 'data',
                 'media_type': 'formato',
                 'title': 'legenda_titulo',
@@ -375,7 +376,7 @@ def run_etl() -> bool:
 
                     published_raw = p.get("published_at", "")
                     try:
-                        data_fmt = pd.to_datetime(published_raw, errors='coerce').strftime("%d/%m/%Y")
+                        data_fmt = pd.to_datetime(published_raw, errors='coerce').strftime("%d/%m/%y")
                     except Exception:
                         data_fmt = str(published_raw)[:10] if published_raw else ""
 
@@ -383,6 +384,7 @@ def run_etl() -> bool:
                         "rank_tipo":      rank_tipo_label,
                         "valor_metrica":  int(valor),
                         "perfil":         p.get("profile_name", ""),
+                        "workspace":      ws["name"],
                         "data":           data_fmt,
                         "formato":        p.get("media_type", ""),
                         "legenda_titulo": p.get("caption", "")[:100] if p.get("caption") else "",
@@ -399,24 +401,29 @@ def run_etl() -> bool:
         if frames:
             df_combined = pd.concat(frames, ignore_index=True)
 
-            # Remove duplicatas por (link, rank_tipo, fonte) mantendo o maior valor
+            # Remove duplicatas por (link, rank_tipo, fonte, workspace) mantendo o maior valor
             df_combined = df_combined.sort_values('valor_metrica', ascending=False)
-            df_combined = df_combined.drop_duplicates(subset=['link', 'rank_tipo', 'fonte'], keep='first')
+            df_combined = df_combined.drop_duplicates(subset=['link', 'rank_tipo', 'fonte', 'workspace'], keep='first')
 
-            # Top 20 por fonte por métrica (120 linhas total: 3 métricas × 2 fontes × 20)
+            # Normaliza data de df_top_cs (published_at ainda é raw) para DD/MM/AA
+            df_combined['data'] = pd.to_datetime(df_combined['data'], errors='coerce').dt.strftime("%d/%m/%y").fillna(df_combined['data'])
+
+            # Top 5 por fonte por workspace por métrica (máx 210 linhas: 3 × 2 × 7 × 5)
             slices = []
             for rank_tipo in ['alcance', 'engajamento', 'impressoes']:
                 for fonte in ['mycreator', 'instagram_nativo']:
-                    subset = df_combined[
-                        (df_combined['rank_tipo'] == rank_tipo) &
-                        (df_combined['fonte'] == fonte)
-                    ]
-                    slices.append(subset.nlargest(20, 'valor_metrica'))
+                    for ws_name in df_combined['workspace'].dropna().unique():
+                        subset = df_combined[
+                            (df_combined['rank_tipo'] == rank_tipo) &
+                            (df_combined['fonte'] == fonte) &
+                            (df_combined['workspace'] == ws_name)
+                        ]
+                        slices.append(subset.nlargest(5, 'valor_metrica'))
 
             df_top_posts = pd.concat(slices, ignore_index=True)
 
             # Garante colunas na ordem correta
-            df_top_posts = df_top_posts[['rank_tipo', 'fonte', 'valor_metrica', 'perfil', 'data', 'formato', 'legenda_titulo', 'link', 'id_post']]
+            df_top_posts = df_top_posts[['rank_tipo', 'fonte', 'workspace', 'valor_metrica', 'perfil', 'data', 'formato', 'legenda_titulo', 'link', 'id_post']]
 
             # Normaliza valores da coluna formato
             df_top_posts['formato'] = df_top_posts['formato'].replace('CAROUSEL_ALBUM', 'Carousel')
