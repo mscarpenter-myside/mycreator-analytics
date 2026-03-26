@@ -350,50 +350,46 @@ def run_etl() -> bool:
         # --- 10.2 Top Posts da aba Analytics (orgânicos + ContentStudio) ---
         logger.info("\n🏆 PROCESSANDO TOP POSTS ANALYTICS...")
 
-        from datetime import timedelta
         now_brt = datetime.now()
-        analytics_end = now_brt.strftime("%Y-%m-%d")
-        analytics_start = (now_brt - timedelta(days=30)).strftime("%Y-%m-%d")
-        analytics_date_range = f"{analytics_start} - {analytics_end}"
+        analytics_date_range = f"2021-01-01 - {now_brt.strftime('%Y-%m-%d')}"
 
-        # Mapeamento: tipo de analytics → rank_tipo PT-BR → coluna de métrica
-        ANALYTICS_TYPES = [
-            ("reach",             "alcance",     "reach"),
-            ("total_engagement",  "engajamento", "total_engagement"),
-            ("impressions",       "impressoes",  "impressions"),
+        METRIC_TYPES = [
+            ("alcance",     "reach"),
+            ("engajamento", "total_engagement"),
+            ("impressoes",  "impressions"),
         ]
 
         analytics_rows = []
         for ws in TARGET_WORKSPACES:
-            for api_type, rank_tipo_label, metric_col in ANALYTICS_TYPES:
-                posts_analytics = extractor.fetch_analytics_top_posts(
-                    ws["id"], ws["name"], analytics_date_range, api_type
-                )
-                for p in posts_analytics:
-                    valor = p.get(metric_col, 0) or 0
-                    # Determina fonte: se o ID existe no ContentStudio → mycreator
-                    ext_id = str(p.get("external_id", ""))
-                    fonte = "mycreator" if ext_id and ext_id in mycreator_external_ids else "instagram_nativo"
+            posts_analytics = extractor.fetch_analytics_top_posts(
+                ws["id"], ws["name"], analytics_date_range
+            )
+            for p in posts_analytics:
+                ext_id = str(p.get("external_id", ""))
+                fonte = "mycreator" if ext_id and ext_id in mycreator_external_ids else "instagram_nativo"
 
-                    published_raw = p.get("published_at", "")
-                    try:
-                        data_fmt = pd.to_datetime(published_raw, errors='coerce').strftime("%d/%m/%Y")
-                    except Exception:
-                        data_fmt = str(published_raw)[:10] if published_raw else ""
+                published_raw = p.get("published_at", "")
+                try:
+                    data_fmt = pd.to_datetime(published_raw, errors='coerce').strftime("%d/%m/%Y")
+                except Exception:
+                    data_fmt = str(published_raw)[:10] if published_raw else ""
 
+                base = {
+                    "perfil":         p.get("profile_name", ""),
+                    "workspace":      ws["name"],
+                    "data":           data_fmt,
+                    "formato":        p.get("media_type", ""),
+                    "legenda_titulo": (p.get("caption", "") or "")[:100],
+                    "link":           p.get("permalink", ""),
+                    "fonte":          fonte,
+                    "id_post":        ext_id,
+                }
+                for rank_tipo_label, metric_col in METRIC_TYPES:
                     analytics_rows.append({
-                        "rank_tipo":      rank_tipo_label,
-                        "valor_metrica":  int(valor),
-                        "perfil":         p.get("profile_name", ""),
-                        "workspace":      ws["name"],
-                        "data":           data_fmt,
-                        "formato":        p.get("media_type", ""),
-                        "legenda_titulo": p.get("caption", "")[:100] if p.get("caption") else "",
-                        "link":           p.get("permalink", ""),
-                        "fonte":          fonte,
-                        "id_post":        ext_id,
+                        **base,
+                        "rank_tipo":     rank_tipo_label,
+                        "valor_metrica": int(p.get(metric_col, 0) or 0),
                     })
-                time.sleep(0.3)
 
         df_top_analytics = pd.DataFrame(analytics_rows) if analytics_rows else pd.DataFrame()
 
