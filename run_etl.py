@@ -341,14 +341,11 @@ def run_etl() -> bool:
             df_top_cs['data'] = pd.to_datetime(df_top_cs['data'], errors='coerce').dt.strftime("%d/%m/%Y")
             df_top_cs['fonte'] = 'mycreator'
 
-            # IDs dos posts ContentStudio para cruzamento com Analytics
-            mycreator_external_ids = set(df_posts['external_id'].dropna().astype(str))
         else:
             df_top_cs = pd.DataFrame()
-            mycreator_external_ids = set()
 
-        # --- 10.2 Top Posts da aba Analytics (orgânicos + ContentStudio) ---
-        logger.info("\n🏆 PROCESSANDO TOP POSTS ANALYTICS...")
+        # --- 10.2 Top Posts da aba Analytics (apenas instagram_nativo) ---
+        logger.info("\n🏆 PROCESSANDO TOP POSTS ANALYTICS (instagram_nativo)...")
 
         now_brt = datetime.now()
         analytics_date_range = f"2021-01-01 - {now_brt.strftime('%Y-%m-%d')}"
@@ -365,9 +362,6 @@ def run_etl() -> bool:
                 ws["id"], ws["name"], analytics_date_range
             )
             for p in posts_analytics:
-                ext_id = str(p.get("external_id", ""))
-                fonte = "mycreator" if ext_id and ext_id in mycreator_external_ids else "instagram_nativo"
-
                 published_raw = p.get("published_at", "")
                 try:
                     data_fmt = pd.to_datetime(published_raw, errors='coerce').strftime("%d/%m/%Y")
@@ -381,8 +375,8 @@ def run_etl() -> bool:
                     "formato":        p.get("media_type", ""),
                     "legenda_titulo": (p.get("caption", "") or "")[:100],
                     "link":           p.get("permalink", ""),
-                    "fonte":          fonte,
-                    "id_post":        ext_id,
+                    "fonte":          "instagram_nativo",
+                    "id_post":        str(p.get("external_id", "")),
                 }
                 for rank_tipo_label, metric_col in METRIC_TYPES:
                     analytics_rows.append({
