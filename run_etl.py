@@ -350,6 +350,13 @@ def run_etl() -> bool:
         now_brt = datetime.now()
         analytics_date_range = f"2021-01-01 - {now_brt.strftime('%Y-%m-%d')}"
 
+        # Lookup de seguidores por perfil (para taxa_alcance)
+        follower_lookup = {}
+        if not df_audience_growth.empty and 'perfil' in df_audience_growth.columns:
+            follower_lookup = (
+                df_audience_growth.groupby('perfil')['seguidores'].max().to_dict()
+            )
+
         METRIC_TYPES = [
             ("alcance",     "reach"),
             ("engajamento", "total_engagement"),
@@ -368,15 +375,25 @@ def run_etl() -> bool:
                 except Exception:
                     data_fmt = str(published_raw)[:10] if published_raw else ""
 
+                perfil    = p.get("profile_name", "")
+                reach_val = int(p.get("reach", 0) or 0)
+                total_eng = int(p.get("total_engagement", 0) or 0)
+                followers = follower_lookup.get(perfil, 0)
+
+                taxa_eng = round(total_eng / reach_val, 4) if reach_val > 0 else 0
+                taxa_alc = round(reach_val / followers, 4) if followers > 0 else 0
+
                 base = {
-                    "perfil":         p.get("profile_name", ""),
-                    "workspace":      ws["name"],
-                    "data":           data_fmt,
-                    "formato":        p.get("media_type", ""),
-                    "legenda_titulo": (p.get("caption", "") or "")[:100],
-                    "link":           p.get("permalink", ""),
-                    "fonte":          "instagram_nativo",
-                    "id_post":        str(p.get("external_id", "")),
+                    "perfil":            perfil,
+                    "workspace":         ws["name"],
+                    "data":              data_fmt,
+                    "formato":           p.get("media_type", ""),
+                    "legenda_titulo":    (p.get("caption", "") or "")[:100],
+                    "link":              p.get("permalink", ""),
+                    "fonte":             "instagram_nativo",
+                    "id_post":           str(p.get("external_id", "")),
+                    "taxa_engajamento":  taxa_eng,
+                    "taxa_alcance":      taxa_alc,
                 }
                 for rank_tipo_label, metric_col in METRIC_TYPES:
                     analytics_rows.append({
@@ -414,8 +431,11 @@ def run_etl() -> bool:
 
             df_top_posts = pd.concat(slices, ignore_index=True)
 
-            # Garante colunas na ordem correta
-            df_top_posts = df_top_posts[['rank_tipo', 'fonte', 'workspace', 'valor_metrica', 'perfil', 'data', 'formato', 'legenda_titulo', 'link', 'id_post']]
+            # Garante colunas na ordem correta (taxa_* só existem em instagram_nativo)
+            for col in ['taxa_engajamento', 'taxa_alcance']:
+                if col not in df_top_posts.columns:
+                    df_top_posts[col] = None
+            df_top_posts = df_top_posts[['rank_tipo', 'fonte', 'workspace', 'valor_metrica', 'perfil', 'data', 'formato', 'legenda_titulo', 'link', 'id_post', 'taxa_engajamento', 'taxa_alcance']]
 
             # Normaliza valores da coluna formato
             df_top_posts['formato'] = df_top_posts['formato'].replace('CAROUSEL_ALBUM', 'Carousel')
@@ -464,8 +484,8 @@ def run_etl() -> bool:
                 time.sleep(5)
 
             if not df_nativo_top.empty:
-                logger.info(f"Uploading top_post_nativo ({len(df_nativo_top)} linhas)...")
-                success_top = load_to_sheets(df_nativo_top, config, tab_name="top_post_nativo") and success_top
+                logger.info(f"Uploading top_posts_pessoais ({len(df_nativo_top)} linhas)...")
+                success_top = load_to_sheets(df_nativo_top, config, tab_name="top_posts_pessoais") and success_top
                 time.sleep(5)
 
         # Carga 4: Crescimento de Seguidores
