@@ -435,7 +435,7 @@ def run_etl() -> bool:
             for col in ['taxa_engajamento', 'taxa_alcance']:
                 if col not in df_top_posts.columns:
                     df_top_posts[col] = None
-            df_top_posts = df_top_posts[['rank_tipo', 'fonte', 'workspace', 'valor_metrica', 'perfil', 'data', 'formato', 'legenda_titulo', 'link', 'id_post', 'taxa_engajamento', 'taxa_alcance']]
+            df_top_posts = df_top_posts[['rank_tipo', 'fonte', 'workspace', 'valor_metrica', 'taxa_engajamento', 'taxa_alcance', 'perfil', 'data', 'formato', 'legenda_titulo', 'link', 'id_post']]
 
             # Normaliza valores da coluna formato
             df_top_posts['formato'] = df_top_posts['formato'].replace('CAROUSEL_ALBUM', 'Carousel')
