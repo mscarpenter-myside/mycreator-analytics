@@ -312,21 +312,22 @@ def run_etl() -> bool:
             actual_cols = [c for c in interaction_cols if c in df_posts.columns]
             df_posts['engagement_total'] = df_posts[actual_cols].fillna(0).sum(axis=1) if actual_cols else 0
 
-            top_reach = df_posts.nlargest(50, 'reach')[['permalink', 'reach', 'title', 'profile_name', 'workspace_name', 'published_at', 'media_type', 'external_id']].copy()
+            _cs_cols = ['permalink', 'title', 'profile_name', 'workspace_name', 'published_at', 'media_type', 'external_id', 'taxa_engajamento', 'taxa_alcance']
+
+            top_reach = df_posts.nlargest(50, 'reach')[_cs_cols + ['reach']].copy()
             top_reach['Rank_Tipo'] = 'alcance'
             top_reach = top_reach.rename(columns={'reach': 'Valor_Metrica'})
 
-            top_engage = df_posts.nlargest(50, 'engagement_total')[['permalink', 'engagement_total', 'title', 'profile_name', 'workspace_name', 'published_at', 'media_type', 'external_id']].copy()
+            top_engage = df_posts.nlargest(50, 'engagement_total')[_cs_cols + ['engagement_total']].copy()
             top_engage['Rank_Tipo'] = 'engajamento'
             top_engage = top_engage.rename(columns={'engagement_total': 'Valor_Metrica'})
 
-            top_impressions = df_posts.nlargest(50, 'impressions')[['permalink', 'impressions', 'title', 'profile_name', 'workspace_name', 'published_at', 'media_type', 'external_id']].copy()
+            top_impressions = df_posts.nlargest(50, 'impressions')[_cs_cols + ['impressions']].copy()
             top_impressions['Rank_Tipo'] = 'impressoes'
             top_impressions = top_impressions.rename(columns={'impressions': 'Valor_Metrica'})
 
             df_top_cs = pd.concat([top_reach, top_engage, top_impressions])
             df_top_cs['Valor_Metrica'] = df_top_cs['Valor_Metrica'].astype(int)
-            df_top_cs = df_top_cs[['Rank_Tipo', 'Valor_Metrica', 'profile_name', 'workspace_name', 'published_at', 'media_type', 'title', 'permalink', 'external_id']]
             df_top_cs = df_top_cs.rename(columns={
                 'Rank_Tipo': 'rank_tipo',
                 'Valor_Metrica': 'valor_metrica',
@@ -435,7 +436,7 @@ def run_etl() -> bool:
             for col in ['taxa_engajamento', 'taxa_alcance']:
                 if col not in df_top_posts.columns:
                     df_top_posts[col] = None
-            df_top_posts = df_top_posts[['rank_tipo', 'fonte', 'workspace', 'valor_metrica', 'taxa_engajamento', 'taxa_alcance', 'perfil', 'data', 'formato', 'legenda_titulo', 'link', 'id_post']]
+            df_top_posts = df_top_posts[['rank_tipo', 'fonte', 'workspace', 'perfil', 'data', 'valor_metrica', 'taxa_engajamento', 'taxa_alcance', 'formato', 'legenda_titulo', 'link', 'id_post']]
 
             # Normaliza valores da coluna formato
             df_top_posts['formato'] = df_top_posts['formato'].replace('CAROUSEL_ALBUM', 'Carousel')
