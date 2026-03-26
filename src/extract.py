@@ -1295,37 +1295,31 @@ class MyCreatorExtractor:
                     continue
 
                 data = resp.json()
-                posts_raw = data if isinstance(data, list) else data.get("data", data.get("posts", []))
+                posts_raw = data.get("top_posts", []) if isinstance(data, dict) else data
 
                 for p in posts_raw:
                     if not isinstance(p, dict):
                         continue
 
-                    media_id = str(
-                        p.get("post_id") or p.get("id") or p.get("media_id") or
-                        p.get("external_id") or ""
-                    )
-                    published_at = (
-                        p.get("created_time") or p.get("timestamp") or
-                        p.get("published_at") or ""
-                    )
-                    likes        = self._safe_int(p, ["likes", "like_count"])
-                    comments     = self._safe_int(p, ["comments", "comments_count", "comment_count"])
-                    saves        = self._safe_int(p, ["saves", "saved", "save_count"])
+                    media_id     = str(p.get("media_id") or p.get("post_id") or p.get("id") or "")
+                    published_at = p.get("post_created_at") or p.get("created_time") or p.get("timestamp") or ""
+                    likes        = self._safe_int(p, ["like_count", "likes"])
+                    comments     = self._safe_int(p, ["comments_count", "comments", "comment_count"])
+                    saves        = self._safe_int(p, ["saved", "saves", "save_count"])
                     shares       = self._safe_int(p, ["shares", "share_count"])
                     reach        = self._safe_int(p, ["reach", "reach_count"])
-                    impressions  = self._safe_int(p, ["impressions", "impression_count", "views"])
-                    total_eng    = self._safe_int(p, ["total_engagement", "total_interactions", "engagement"])
+                    impressions  = self._safe_int(p, ["impressions", "impression_count"])
+                    total_eng    = self._safe_int(p, ["total_engagement", "engagement", "total_interactions"])
                     if total_eng == 0:
                         total_eng = likes + comments + saves + shares
 
                     all_posts.append({
                         "external_id":    media_id,
                         "workspace_name": workspace_name,
-                        "profile_name":   profile_name,
+                        "profile_name":   p.get("name") or profile_name,
                         "published_at":   published_at,
-                        "media_type":     p.get("media_type") or p.get("type") or "IMAGE",
-                        "caption":        p.get("caption") or p.get("category") or "",
+                        "media_type":     p.get("media_type") or p.get("entity_type") or "IMAGE",
+                        "caption":        p.get("caption") or "",
                         "permalink":      p.get("permalink") or p.get("link") or "",
                         "reach":          reach,
                         "impressions":    impressions,

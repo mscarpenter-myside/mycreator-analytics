@@ -458,20 +458,29 @@ def run_etl() -> bool:
             success_hashtags = load_to_sheets(df_hashtags_final, config, tab_name="analise_hashtag")
             time.sleep(5)
 
-        # Carga 3: Top Posts
+        # Carga 3a: Top Posts MyCreator
         success_top = True
         if not df_top_posts.empty:
-            logger.info(f"Uploading top_posts_mycreator ({len(df_top_posts)} linhas)...")
-            success_top = load_to_sheets(df_top_posts, config, tab_name="top_posts_mycreator")
-            time.sleep(5)
-            
+            df_mycreator_top = df_top_posts[df_top_posts['fonte'] == 'mycreator'].copy()
+            df_nativo_top    = df_top_posts[df_top_posts['fonte'] == 'instagram_nativo'].copy()
+
+            if not df_mycreator_top.empty:
+                logger.info(f"Uploading top_posts_mycreator ({len(df_mycreator_top)} linhas)...")
+                success_top = load_to_sheets(df_mycreator_top, config, tab_name="top_posts_mycreator")
+                time.sleep(5)
+
+            if not df_nativo_top.empty:
+                logger.info(f"Uploading top_post_nativo ({len(df_nativo_top)} linhas)...")
+                success_top = load_to_sheets(df_nativo_top, config, tab_name="top_post_nativo") and success_top
+                time.sleep(5)
+
         # Carga 4: Crescimento de Seguidores
         success_growth = True
         if not df_audience_growth.empty:
             logger.info(f"Uploading crescimento_seguidores ({len(df_audience_growth)} linhas)...")
             success_growth = load_to_sheets(df_audience_growth, config, tab_name="crescimento_seguidores")
             time.sleep(5)
-        
+
         if not all([success_posts, success_hashtags, success_top, success_growth]):
             logger.error("❌ Falha parcial na atualização do Google Sheets!")
         else:
