@@ -312,7 +312,10 @@ def run_etl() -> bool:
             actual_cols = [c for c in interaction_cols if c in df_posts.columns]
             df_posts['engagement_total'] = df_posts[actual_cols].fillna(0).sum(axis=1) if actual_cols else 0
 
-            _cs_cols = ['permalink', 'title', 'profile_name', 'workspace_name', 'published_at', 'media_type', 'external_id', 'taxa_engajamento', 'taxa_alcance']
+            for col in ['engagement_rate', 'reach_rate']:
+                if col not in df_posts.columns:
+                    df_posts[col] = 0
+            _cs_cols = ['permalink', 'title', 'profile_name', 'workspace_name', 'published_at', 'media_type', 'external_id', 'engagement_rate', 'reach_rate']
 
             top_reach = df_posts.nlargest(50, 'reach')[_cs_cols + ['reach']].copy()
             top_reach['Rank_Tipo'] = 'alcance'
@@ -338,6 +341,8 @@ def run_etl() -> bool:
                 'title': 'legenda_titulo',
                 'permalink': 'link',
                 'external_id': 'id_post',
+                'engagement_rate': 'taxa_engajamento',
+                'reach_rate': 'taxa_alcance',
             })
             df_top_cs['data'] = pd.to_datetime(df_top_cs['data'], errors='coerce').dt.strftime("%d/%m/%Y")
             df_top_cs['fonte'] = 'mycreator'
