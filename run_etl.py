@@ -406,26 +406,21 @@ def run_etl() -> bool:
             df_combined = df_combined.sort_values('valor_metrica', ascending=False)
             df_combined = df_combined.drop_duplicates(subset=['link', 'rank_tipo', 'fonte', 'workspace'], keep='first')
 
-            # mycreator:        top 5 por workspace por métrica
-            # instagram_nativo: top 5 por perfil por workspace por métrica
+            # top 5 por perfil por workspace por métrica — para ambas as fontes
             slices = []
             for rank_tipo in ['alcance', 'engajamento', 'impressoes']:
                 for ws_name in df_combined['workspace'].dropna().unique():
-                    ws_mask = (df_combined['workspace'] == ws_name)
-
-                    # mycreator — top 5 geral do workspace
-                    subset = df_combined[
-                        ws_mask &
-                        (df_combined['rank_tipo'] == rank_tipo) &
-                        (df_combined['fonte'] == 'mycreator')
-                    ]
-                    slices.append(subset.nlargest(5, 'valor_metrica'))
-
-                    # instagram_nativo — top 5 por perfil
-                    nat_mask = ws_mask & (df_combined['rank_tipo'] == rank_tipo) & (df_combined['fonte'] == 'instagram_nativo')
-                    for perfil in df_combined[nat_mask]['perfil'].dropna().unique():
-                        subset = df_combined[nat_mask & (df_combined['perfil'] == perfil)]
-                        slices.append(subset.nlargest(5, 'valor_metrica'))
+                    for fonte in ['mycreator', 'instagram_nativo']:
+                        mask = (
+                            (df_combined['workspace'] == ws_name) &
+                            (df_combined['rank_tipo'] == rank_tipo) &
+                            (df_combined['fonte'] == fonte)
+                        )
+                        for perfil in df_combined[mask]['perfil'].dropna().unique():
+                            subset = df_combined[mask & (df_combined['perfil'] == perfil)]
+                            top5 = subset.nlargest(5, 'valor_metrica')
+                            if not top5.empty:
+                                slices.append(top5)
 
             df_top_posts = pd.concat(slices, ignore_index=True)
 
